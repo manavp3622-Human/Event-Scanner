@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event QR Authenticator</title>
+    <!-- jsQR Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --bg-dark: #111827;
+            --text-light: #f3f4f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Setup Screen */
+        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; }
+        .setup-card { background: #1f2937; padding: 30px; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); }
+        .setup-card h2 { margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #9ca3af; }
+        input[type="password"], input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #374151; background: #374151; color: white; outline: none; }
+        input:focus { border-color: var(--success); }
+        
+        .btn { padding: 12px 20px; width: 100%; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px; text-align: center; }
+        .btn-primary { background: var(--success); color: white; }
+        .btn-primary:hover { background: #059669; }
+        
+        /* Scanner Screen */
+        #scanner-screen { display: none; flex-direction: column; height: 100vh; position: relative; }
+        .scanner-header { background: rgba(0,0,0,0.8); padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; position: absolute; width: 100%; top: 0; }
+        #video-container { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; }
+        .scan-frame { position: absolute; width: 250px; height: 250px; border: 4px solid rgba(255, 255, 255, 0.5); border-radius: 20px; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center;}
+        .scan-frame::after { content: 'Align QR Code Here'; color: rgba(255,255,255,0.7); font-size: 14px; font-weight: bold; position: absolute; bottom: -30px; width: 100%; text-align: center;}
+        
+        /* Fallback Container */
+        #fallback-container { flex: 1; display: none; flex-direction: column; justify-content: center; align-items: center; background: #000; padding: 20px; text-align: center; margin-top: 60px; }
+        
+        /* Result Modal */
+        #result-modal { display: none; position: absolute; bottom: 0; left: 0; width: 100%; background: #1f2937; padding: 25px 20px; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 20; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); transform: translateY(100%); transition: transform 0.3s ease-out; }
+        #result-modal.show { transform: translateY(0); display: block; }
+        
+        .result-banner { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .status-verified { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .status-invalid { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .status-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+        
+        .result-details { margin-bottom: 20px; display: grid; grid-template-columns: 1fr; gap: 10px;}
+        .detail-row { display: flex; justify-content: space-between; border-bottom: 1px solid #374151; padding-bottom: 8px; }
+        .detail-label { color: #9ca3af; font-size: 14px; }
+        .detail-value { font-weight: 600; text-align: right; word-break: break-all;}
+        
+        .d-none { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- STEP 1: KEY SETUP -->
+    <div id="setup-screen">
+        <div class="setup-card">
+            <h2>Authentication Setup</h2>
+            <div class="form-group">
+                <label>Authentication Key (64-char Hex)</label>
+                <input type="password" id="auth-key" placeholder="Paste the secret key here" />
+            </div>
+            <div class="form-group">
+                <label>Expected Event (Optional)</label>
+                <input type="text" id="expected-event" placeholder="e.g. TECHFEST 2026" />
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="prevent-duplicates" checked style="width:16px; height:16px; accent-color: var(--success);">
+                <label style="margin:0; cursor:pointer;" for="prevent-duplicates">Prevent Duplicate Scans</label>
+            </div>
+            <button class="btn btn-primary" onclick="initScanner()">Start Authenticator</button>
+        </div>
+    </div>
+
+    <!-- STEP 2: SCANNER -->
+    <div id="scanner-screen">
+        <div class="scanner-header">
+            <div style="font-weight: bold; font-size: 18px;">Scanner Active</div>
+            <button style="background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 4px; cursor:pointer;" onclick="stopScanner()">Exit</button>
+        </div>
+        
+        <!-- Live Video Container -->
+        <div id="video-container">
+            <video id="qr-video" playsinline></video>
+            <canvas id="qr-canvas"></canvas>
+            <div class="scan-frame"></div>
+        </div>
+
+        <!-- Fallback Container (For Android devices blocking live video) -->
+        <div id="fallback-container">
+            <h3 style="margin-bottom: 15px; color: var(--warning);">Live Camera Blocked</h3>
+            <p style="margin-bottom: 25px; color: #9ca3af; font-size: 14px;">
+                Your browser requires HTTPS to use the live camera. 
+                Use the button below to open your native camera and snap a photo of the QR code instead.
+            </p>
+            <label class="btn btn-primary" style="display:inline-block; cursor:pointer;">
+                Take Photo of QR Code
+                <input type="file" accept="image/*" capture="environment" class="d-none" id="file-qr-input">
+            </label>
+        </div>
+        
+        <!-- RESULT MODAL -->
+        <div id="result-modal">
+            <div id="result-banner" class="result-banner status-verified">✓ VERIFIED</div>
+            <div id="result-details" class="result-details">
+                <!-- Details injected here -->
+            </div>
+            <button class="btn" style="background: #374151; color: white;" onclick="resumeScanner()">Scan Next</button>
+        </div>
+    </div>
+
+<script>
+    let activeKeyHex = "";
+    let expectedEvent = "";
+    let preventDuplicates = true;
+    let videoStream = null;
+    let scanning = false;
+    
+    // Canvas context for JSQR
+    const video = document.getElementById("qr-video");
+    const canvasElement = document.getElementById("qr-canvas");
+    const canvas = canvasElement.getContext("2d");
+    
+    let scanHistory = JSON.parse(localStorage.getItem('qr_scans') || '{}');
+
+    // -- Crypto Utils -- //
+    async function importKey(hexKey) {
+        const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
+        return await window.crypto.subtle.importKey(
+            "raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+        );
+    }
+
+    async function verifySignature(hexKey, message, providedSignatureHex) {
+        try {
+            const key = await importKey(hexKey);
+            const enc = new TextEncoder();
+            const signature = await window.crypto.subtle.sign("HMAC", key, enc.encode(message));
+            const calculatedSignature = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            if (calculatedSignature.length !== providedSignatureHex.length) return false;
+            let mismatch = 0;
+            for (let i = 0; i < calculatedSignature.length; i++) {
+                mismatch |= (calculatedSignature.charCodeAt(i) ^ providedSignatureHex.charCodeAt(i));
+            }
+            return mismatch === 0;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // -- App Logic -- //
+    function initScanner() {
+        const key = document.getElementById('auth-key').value.trim();
+        if(key.length !== 64) {
+            alert("Invalid key format. Please enter the 64-character hex key generated by the ID Generator.");
+            return;
+        }
+        activeKeyHex = key;
+        expectedEvent = document.getElementById('expected-event').value.trim();
+        preventDuplicates = document.getElementById('prevent-duplicates').checked;
+        
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('scanner-screen').style.display = 'flex';
+        
+        startCamera();
+    }
+
+    function startCamera() {
+        // Reset Views
+        document.getElementById('video-container').style.display = 'flex';
+        document.getElementById('fallback-container').style.display = 'none';
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            activateFallback();
+            return;
+        }
+
+        // Try environment (rear) camera first
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function(stream) {
+            handleStreamSuccess(stream);
+        })
+        .catch(function(err) {
+            // Fallback: Try any camera if environment specified fails
+            navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                handleStreamSuccess(stream);
+            })
+            .catch(function(err2) {
+                console.error("Camera access denied:", err2);
+                activateFallback();
+            });
+        });
+    }
+
+    function handleStreamSuccess(stream) {
+        videoStream = stream;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        video.play();
+        scanning = true;
+        requestAnimationFrame(tick);
+    }
+
+    function activateFallback() {
+        document.getElementById('video-container').style.display = 'none';
+        document.getElementById('fallback-container').style.display = 'flex';
+    }
+
+    // Handle Native Photo Input (Fallback)
+    document.getElementById('file-qr-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                canvasElement.width = img.width;
+                canvasElement.height = img.height;
+                canvas.drawImage(img, 0, 0, img.width, img.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code) {
+                    processQRCode(code.data);
+                } else {
+                    alert("Could not read a QR code from that image. Please try again and ensure the QR is clear.");
+                    document.getElementById('file-qr-input').value = ""; // reset
+                }
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    function stopScanner() {
+        if(videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+        }
+        scanning = false;
+        document.getElementById('scanner-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'flex';
+    }
+
+    function tick() {
+        if (!scanning) return;
+        
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvasElement.height = video.videoHeight;
+            canvasElement.width = video.videoWidth;
+            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+            var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            var code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            
+            if (code) {
+                scanning = false;
+                processQRCode(code.data);
+                return;
+            }
+        }
+        requestAnimationFrame(tick);
+    }
+
+    async function processQRCode(data) {
+        const parts = data.split('|');
+        const modal = document.getElementById('result-modal');
+        const banner = document.getElementById('result-banner');
+        const details = document.getElementById('result-details');
+        
+        modal.classList.add('show');
+        
+        if(parts.length !== 5) {
+            showResult(banner, details, "✕ INVALID FORMAT", "status-invalid", "The scanned QR code is not generated by this system.");
+            return;
+        }
+
+        const [version, eventStr, rollNo, uid, signature] = parts;
+        const baseMessage = `${version}|${eventStr}|${rollNo}|${uid}`;
+        
+        const isValid = await verifySignature(activeKeyHex, baseMessage, signature);
+        
+        if(!isValid) {
+            showResult(banner, details, "✕ TAMPERED / INVALID KEY", "status-invalid", "Signature mismatch. Fake QR or wrong key.");
+            return;
+        }
+
+        if(expectedEvent && eventStr.toLowerCase() !== expectedEvent.toLowerCase()) {
+            showResult(banner, details, "⚠ EVENT MISMATCH", "status-warning", `Valid QR, but belongs to event: ${eventStr}`);
+            return;
+        }
+
+        if(preventDuplicates && scanHistory[uid]) {
+            showResult(banner, details, "⚠ ALREADY SCANNED", "status-warning", `ID: ${uid}<br>Scanned at: ${new Date(scanHistory[uid]).toLocaleTimeString()}`);
+            return;
+        }
+
+        // Success
+        scanHistory[uid] = Date.now();
+        localStorage.setItem('qr_scans', JSON.stringify(scanHistory));
+        
+        banner.className = "result-banner status-verified";
+        banner.innerHTML = "✓ VERIFIED PARTICIPANT";
+        details.innerHTML = `
+            <div class="detail-row"><span class="detail-label">Name / Roll No</span><span class="detail-value">${rollNo}</span></div>
+            <div class="detail-row"><span class="detail-label">Event</span><span class="detail-value">${eventStr}</span></div>
+            <div class="detail-row"><span class="detail-label">Unique ID</span><span class="detail-value">${uid}</span></div>
+        `;
+    }
+
+    function showResult(banner, details, title, cssClass, message) {
+        banner.className = `result-banner ${cssClass}`;
+        banner.innerHTML = title;
+        details.innerHTML = `<div style="text-align:center; padding:10px 0;">${message}</div>`;
+    }
+
+    function resumeScanner() {
+        document.getElementById('result-modal').classList.remove('show');
+        document.getElementById('file-qr-input').value = ""; // clear file input
+        
+        // Only resume live ticking if the video stream is active
+        if (videoStream) {
+            scanning = true;
+            requestAnimationFrame(tick);
+        }
+    }
+</script>
+</body>
+</html>
