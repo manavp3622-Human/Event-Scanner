@@ -2,385 +2,516 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event ID Card Generator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Event QR Authenticator App</title>
+    <!-- jsQR Library for scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- html2pdf Library for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
-        :root { --primary: #2563eb; --primary-dark: #1d4ed8; --bg-color: #f3f4f6; --text-main: #1f2937; --border-color: #e5e7eb; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+        :root { --primary: #2563eb; --bg-dark: #0f172a; --surface: #1e293b; --text-light: #f8fafc; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --exit-color: #3b82f6; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
+        body { background-color: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .sidebar { width: 250px; background: #ffffff; border-right: 1px solid var(--border-color); padding: 20px 0; display: flex; flex-direction: column; }
-        .sidebar-brand { padding: 0 20px 20px; font-weight: bold; font-size: 18px; border-bottom: 1px solid var(--border-color); margin-bottom: 10px; }
-        .nav-item { padding: 15px 20px; cursor: pointer; border-left: 3px solid transparent; transition: 0.2s; }
-        .nav-item:hover, .nav-item.active { background: #eff6ff; border-left-color: var(--primary); color: var(--primary); font-weight: 500; }
+        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; z-index: 100; background: var(--bg-dark); }
+        .setup-card { background: var(--surface); padding: 30px 20px; border-radius: 16px; width: 100%; max-width: 400px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; }
+        input[type="password"] { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; outline: none; font-size: 16px; }
+        input:focus { border-color: var(--primary); }
+        .btn { padding: 14px 20px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
         
-        .main-content { flex: 1; padding: 30px; overflow-y: auto; position: relative; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        #main-app { display: none; flex-direction: column; height: 100vh; position: relative; }
+        .tab-content { flex: 1; overflow-y: auto; display: none; position: relative; }
+        .tab-content.active { display: flex; flex-direction: column; }
         
-        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: 500; margin-bottom: 5px; font-size: 14px; }
-        select, input[type="text"] { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
+        .scanner-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(15, 23, 42, 0.9); position: absolute; width: 100%; z-index: 20; border-bottom: 1px solid #334155;}
         
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; color: white; background: var(--primary); transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; }
-        .btn:hover { background: var(--primary-dark); }
-        .btn-success { background: var(--success); }
-        .btn-success:hover { background: #059669; }
+        .bottom-nav { display: flex; background: var(--surface); border-top: 1px solid #334155; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; padding: 15px 0; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item svg { width: 24px; height: 24px; fill: currentColor; }
         
-        .drop-zone { border: 2px dashed var(--border-color); border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; background: #fafafa; transition: 0.2s; }
-        .drop-zone:hover { border-color: var(--primary); background: #eff6ff; }
-        .drop-zone p { margin-top: 5px; color: #6b7280; font-size: 13px; }
+        #video-container { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-top: 60px;}
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { display: none; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
-        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-        th { background: #f9fafb; font-weight: 600; }
-        .thumb-preview { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid #ddd; background: #eee; }
+        .scan-overlay-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
+        .scan-frame { width: 250px; height: 250px; border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 20px; position: relative; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6); }
+        .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
         
-        #id-card-render-container { position: absolute; left: -9999px; top: 0; z-index: -10; }
-        .id-card { width: 350px; height: 550px; background: white; border: 1px solid #ccc; position: relative; font-family: 'Arial', sans-serif; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; }
-        .id-header { background: var(--primary); color: white; text-align: center; padding: 15px 10px; }
-        .id-header h2 { margin: 0; font-size: 18px; text-transform: uppercase; }
-        .id-header p { margin: 5px 0 0; font-size: 12px; letter-spacing: 1px; }
-        .id-body { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; text-align: center; }
-        .id-photo { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 3px solid var(--primary); margin-bottom: 15px; background: #eee; }
-        .id-name { font-size: 20px; font-weight: bold; margin-bottom: 5px; color: #111; text-transform: uppercase;}
-        .id-roll { font-size: 15px; color: #444; margin-bottom: 8px; }
-        .id-stay { font-size: 13px; color: #666; background: #f3f4f6; padding: 4px 12px; border-radius: 20px; margin-bottom: 15px; }
-        .id-qr-container { display: flex; justify-content: center; align-items: center; margin-bottom: 10px; }
-        .id-footer { text-align: center; padding: 10px; background: #f9fafb; font-size: 10px; color: #888; border-top: 1px solid #eee; }
+        #flash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 10; }
+        #search-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; }
         
-        .d-none { display: none !important; }
-        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
-        .status-ready { background: #d1fae5; color: #065f46; }
-        .status-error { background: #fee2e2; color: #991b1b; }
-        .status-warning { background: #fef3c7; color: #92400e; }
+        #result-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 50; flex-direction: column; justify-content: center; align-items: center; padding: 20px; cursor: pointer; text-align: center; }
+        #result-modal.show { display: flex; }
+        .result-icon { font-size: 70px; margin-bottom: 10px; }
+        .result-title { font-size: 26px; font-weight: bold; margin-bottom: 20px; }
+        .result-details { background: var(--surface); padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; margin-bottom: 30px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: #94a3b8; font-size: 14px; }
+        .detail-value { font-weight: 600; font-size: 15px; }
+        .tap-to-close { color: #94a3b8; font-size: 14px; animation: pulse 1.5s infinite; }
         
-        .key-display { font-family: monospace; background: #1f2937; color: #10b981; padding: 20px; border-radius: 4px; font-size: 16px; text-align: center; word-break: break-all; margin: 20px 0; letter-spacing: 1px;}
-        .progress-bar-container { width: 100%; background: #e5e7eb; border-radius: 8px; height: 20px; overflow: hidden; margin: 20px 0; display: none; }
-        .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+        .res-success { color: var(--success); }
+        .res-error { color: var(--danger); }
+        .res-exit { color: var(--exit-color); }
+        
+        #logs-tab { padding: 0; background: var(--bg-dark); display: flex; flex-direction: column; height: 100%; }
+        
+        /* Log Views Containers */
+        #folder-list-view { padding: 20px; flex: 1; overflow-y: auto; }
+        #folder-detail-view { display: none; flex-direction: column; height: 100%; background: var(--bg-dark); flex: 1; overflow: hidden; }
+        
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .folder-card { background: var(--surface); border-radius: 12px; margin-bottom: 15px; overflow: hidden; border: 1px solid #334155; cursor: pointer; transition: 0.2s; }
+        .folder-card:active { background: #334155; }
+        .folder-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .folder-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+        .folder-stats { font-size: 12px; color: #94a3b8; }
+        
+        .btn-sm { padding: 8px 12px; border-radius: 6px; font-size: 13px; border: none; font-weight: bold; cursor: pointer; color: white; display: inline-block;}
+        
+        #search-result-container { display: none; background: var(--surface); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 2px solid var(--warning); }
+        .log-entry-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #334155; font-size: 14px; }
+        .entry-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(16,185,129,0.2); color: var(--success); }
+        .exit-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(59,130,246,0.2); color: var(--exit-color); }
+
+        /* Folder Detail Specific UI - THIS IS THE NEW PAGE YOU ASKED FOR! */
+        .detail-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--surface); border-bottom: 1px solid #334155; }
+        .stat-boxes { display: flex; gap: 10px; padding: 15px 20px; background: var(--bg-dark); }
+        .stat-box { flex: 1; background: var(--surface); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #334155; }
+        .stat-num { font-size: 24px; font-weight: bold; color: var(--primary); margin-bottom: 5px; }
+        .stat-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; }
+        
+        .table-container { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .log-table th { position: sticky; top: 0; background: var(--surface); padding: 12px 10px; text-align: left; color: #94a3b8; font-weight: 600; border-bottom: 1px solid #334155; z-index: 2; }
+        .log-table td { padding: 12px 10px; border-bottom: 1px solid #334155; vertical-align: top; }
+        
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-brand">ID Gen Pro</div>
-        <div class="nav-item active" onclick="switchTab('tab-generate')">Import & Generate</div>
-        <div class="nav-item" onclick="switchTab('tab-key')">Authentication Key</div>
+    <div id="setup-screen">
+        <div class="setup-card">
+            <h2 style="margin-bottom: 20px; text-align: center;">Authenticator Login</h2>
+            <div class="form-group">
+                <label>Event Secret Key (64-char Hex)</label>
+                <input type="password" id="auth-key" placeholder="Paste key here..." />
+            </div>
+            <button class="btn btn-primary" onclick="initApp()">Start Scanning</button>
+        </div>
     </div>
 
-    <div class="main-content">
-        <div id="tab-generate" class="tab-content active">
-            <div class="card">
-                <h3>1. Configuration & Key</h3>
-                <div style="margin-top: 15px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
-                    <div class="form-group" style="flex: 1; min-width: 300px; margin:0;">
-                        <label>Current Authentication Key</label>
-                        <input type="text" id="active-key" placeholder="Paste your 64-character hex key here..." />
-                    </div>
-                    <div class="form-group" style="margin:0; padding-bottom: 10px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="allow-missing-photo" checked> Use placeholder if photo is missing
-                        </label>
-                    </div>
-                </div>
+    <div id="main-app">
+        <!-- SCANNER TAB -->
+        <div id="scanner-tab" class="tab-content active">
+            <div class="scanner-header">
+                <div style="font-weight: bold; font-size: 18px;">Scanner Active</div>
+                <div><button class="btn-sm" style="background: var(--surface); color: white;" onclick="switchTab('logs-tab', 'nav-logs')">📁 View Logs</button></div>
             </div>
 
-            <div class="card">
-                <h3>2. Import Participants & Photos</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
-                    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-                        <h4>Step A: Select Excel File</h4>
-                        <p id="excel-file-name">Supports .xlsx, .xls</p>
-                        <input type="file" id="file-input" class="d-none" accept=".xlsx, .xls" />
-                    </div>
-                    <div class="drop-zone" style="background:#fefce8; border-color:#fde047;" onclick="document.getElementById('photos-input').click()">
-                        <h4 style="color:#854d0e;">Step B: Select Photos Folder / Files</h4>
-                        <p id="photos-count-label" style="color:#a16207;">Select all student photos (named by Roll No)</p>
-                        <input type="file" id="photos-input" class="d-none" accept="image/*" multiple />
-                    </div>
+            <div id="search-mode-banner">SEARCH MODE ACTIVE<br><span style="font-size:12px; font-weight:normal;">Tap QR to find history.</span></div>
+            
+            <div id="video-container" onclick="captureAndScan()">
+                <video id="qr-video" playsinline></video>
+                <canvas id="qr-canvas"></canvas>
+                <div class="scan-overlay-ui"><div class="scan-frame"></div></div>
+                <div class="tap-instruction">👆 Tap anywhere on screen to scan</div>
+                <div id="flash-effect"></div>
+            </div>
+            
+            <div id="result-modal" onclick="closeResult()">
+                <div class="result-icon" id="res-icon">✓</div>
+                <div class="result-title" id="res-title">VERIFIED</div>
+                <div class="result-details" id="res-details"></div>
+                <div class="tap-to-close">👆 Tap anywhere to scan next</div>
+            </div>
+        </div>
+
+        <!-- LOGS TAB -->
+        <div id="logs-tab" class="tab-content">
+            
+            <!-- MAIN FOLDER LIST -->
+            <div id="folder-list-view">
+                <div class="log-header">
+                    <h2>Data Logs</h2>
+                    <button class="btn-sm" style="background: var(--warning); color: #000;" onclick="activateSearchMode()">🔍 Search QR</button>
                 </div>
+                
+                <div id="search-result-container">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="color: var(--warning);">Search Result</h3>
+                        <button class="btn-sm" style="background:#334155;" onclick="clearSearch()">Clear</button>
+                    </div>
+                    <div id="search-details"></div>
+                </div>
+
+                <div id="folders-container"></div>
             </div>
 
-            <div class="card d-none" id="event-selection-card">
-                <h3>3. Event Selection</h3>
-                <div class="form-group" style="margin-top: 10px;">
-                    <label>Select Event</label>
-                    <select id="event-select"></select>
+            <!-- FOLDER DETAILED VIEW (This slides in when you click a folder!) -->
+            <div id="folder-detail-view">
+                <div class="detail-top-bar">
+                    <button class="btn-sm" style="background: transparent; color: var(--primary); padding: 5px 0; font-size: 16px;" onclick="closeFolderView()">❮ Back</button>
+                    <h3 id="detail-folder-title" style="font-size: 16px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;">Event</h3>
+                    <!-- THIS IS THE PDF BUTTON -->
+                    <button class="btn-sm" style="background: var(--primary);" onclick="exportToPDF()">PDF ⭳</button>
                 </div>
-                <p id="total-participants-txt">Total Participants: 0</p>
-            </div>
+                
+                <div class="stat-boxes">
+                    <div class="stat-box">
+                        <div class="stat-num" id="stat-attended">0</div>
+                        <div class="stat-label">Total Attended</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-num" id="stat-entries">0</div>
+                        <div class="stat-label">Total Entries</div>
+                    </div>
+                </div>
 
-            <div class="card d-none" id="preview-card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3>4. Participant Preview</h3>
-                    <button class="btn btn-success" id="btn-generate">Generate ID Cards</button>
-                </div>
-                <div class="progress-bar-container" id="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
-                <p id="progress-text" style="text-align: center; margin-bottom: 10px;" class="d-none"></p>
-                <div style="overflow-x: auto; max-height: 400px; margin-top: 15px;">
-                    <table id="participant-table">
-                        <thead><tr><th>Select</th><th>Photo</th><th>Roll No</th><th>Name</th><th>Event</th><th>Stay</th><th>Status</th></tr></thead>
-                        <tbody></tbody>
+                <!-- THIS IS THE 3-COLUMN LIST -->
+                <div class="table-container">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>Name & Roll</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detail-table-body">
+                            <!-- Injected rows -->
+                        </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <div id="tab-key" class="tab-content">
-            <div class="card">
-                <h2>Cryptographic Key Generator</h2>
-                <p style="margin-top: 10px; color: #4b5563;">Generate a strong, random 256-bit authentication key.</p>
-                <button class="btn" style="margin-top: 20px;" onclick="generateNewKey()">Generate New Authentication Key</button>
-                <div id="key-display-container" class="d-none">
-                    <div class="key-display" id="generated-key"></div>
-                    <button class="btn btn-success" onclick="copyKey()">Copy Key</button>
-                </div>
+        <!-- BOTTOM NAV -->
+        <div class="bottom-nav">
+            <div class="nav-item active" id="nav-scan" onclick="switchTab('scanner-tab', 'nav-scan')">
+                <svg viewBox="0 0 24 24"><path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z"/></svg>
+                Scanner
             </div>
-        </div>
-    </div>
-
-    <!-- Hidden Renderer for html2canvas -->
-    <div id="id-card-render-container">
-        <div class="id-card" id="render-card">
-            <div class="id-header">
-                <h2 id="rc-event">EVENT NAME</h2>
-                <p>EVENT IDENTITY CARD</p>
+            <div class="nav-item" id="nav-logs" onclick="switchTab('logs-tab', 'nav-logs')">
+                <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+                Logs
             </div>
-            <div class="id-body">
-                <img id="rc-photo" class="id-photo" src="" alt="Photo" crossorigin="anonymous">
-                <div id="rc-name" class="id-name">NAME</div>
-                <div id="rc-roll" class="id-roll">Roll No: 1234</div>
-                <div id="rc-stay" class="id-stay">Stay: None</div>
-                <div class="id-qr-container" id="rc-qr"></div>
-            </div>
-            <div class="id-footer" id="rc-uid">ID: XXXX</div>
         </div>
     </div>
 
 <script>
-    const APP_CONFIG = {
-        organizationName: "ORG",
-        qrVersion: "V1",
-        defaultImage: "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' fill='%23ccc'%3E%3Cpath d='M60 20a20 20 0 1 0 0 40 20 20 0 0 0 0-40zm-30 65c0-15 20-25 30-25s30 10 30 25v15H30V85z'/%3E%3C/svg%3E"
-    };
+    let activeKeyHex = "";
+    let videoStream = null;
+    let isSearchMode = false;
+    let appLogs = JSON.parse(localStorage.getItem('event_logs_db') || '{}');
+    let currentOpenFolder = ""; 
 
-    let globalData = [];
-    let eventsList = [];
-    let currentFilteredData = [];
-    let photoMap = new Map();
-    let zip = null;
+    const video = document.getElementById("qr-video");
+    const canvasElement = document.getElementById("qr-canvas");
+    const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
+    
+    async function importKey(hexKey) {
+        const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
+        return await window.crypto.subtle.importKey("raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    }
 
-    function switchTab(tabId) {
+    async function verifySignature(hexKey, message, providedSignatureHex) {
+        try {
+            const key = await importKey(hexKey);
+            const enc = new TextEncoder();
+            const signature = await window.crypto.subtle.sign("HMAC", key, enc.encode(message));
+            const calculatedSignature = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+            if (calculatedSignature.length !== providedSignatureHex.length) return false;
+            let mismatch = 0;
+            for (let i = 0; i < calculatedSignature.length; i++) { mismatch |= (calculatedSignature.charCodeAt(i) ^ providedSignatureHex.charCodeAt(i)); }
+            return mismatch === 0;
+        } catch (e) { return false; }
+    }
+
+    function initApp() {
+        const key = document.getElementById('auth-key').value.trim();
+        if(key.length !== 64) { alert("Invalid key. Please enter the 64-character hex key."); return; }
+        activeKeyHex = key;
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        startCamera();
+        renderFolders();
+    }
+
+    function switchTab(tabId, navId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
-        event.currentTarget.classList.add('active');
+        document.getElementById(navId).classList.add('active');
+        
+        if(tabId === 'scanner-tab' && !videoStream) startCamera();
+        
+        if(tabId === 'logs-tab') {
+            closeFolderView(); 
+            renderFolders();
+        }
     }
 
-    async function generateNewKey() {
-        const array = new Uint8Array(32);
-        window.crypto.getRandomValues(array);
-        const hexKey = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
-        document.getElementById('generated-key').innerText = hexKey;
-        document.getElementById('key-display-container').classList.remove('d-none');
-        document.getElementById('active-key').value = hexKey;
-    }
-
-    function copyKey() {
-        const key = document.getElementById('generated-key').innerText;
-        navigator.clipboard.writeText(key).then(() => alert("Key copied to clipboard!"));
-    }
-
-    async function signMessage(hexKey, message) {
-        const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
-        const key = await window.crypto.subtle.importKey("raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-        const enc = new TextEncoder();
-        const signature = await window.crypto.subtle.sign("HMAC", key, enc.encode(message));
-        return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    function generateUniqueId(eventPrefix) {
-        const randStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-        return `${eventPrefix.substring(0,5).toUpperCase().replace(/[^A-Z0-9]/g, '')}-${randStr}`;
-    }
-
-    document.getElementById('photos-input').addEventListener('change', function(e) {
-        const files = Array.from(e.target.files);
-        if(!files.length) return;
-        files.forEach(file => {
-            const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')).toLowerCase().trim();
-            const url = URL.createObjectURL(file);
-            photoMap.set(nameWithoutExt, url); 
-            photoMap.set(file.name.toLowerCase().trim(), url);
+    function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Camera not supported or blocked."); return; }
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function(stream) {
+            videoStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
+        })
+        .catch(function(err) {
+            navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+                videoStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
+            }).catch(e => alert("Camera permission denied."));
         });
-        document.getElementById('photos-count-label').innerText = `✓ Loaded ${files.length} photos in memory`;
-        if(globalData.length > 0) filterTable();
-    });
-
-    document.getElementById('file-input').addEventListener('change', handleFile);
-    document.getElementById('allow-missing-photo').addEventListener('change', filterTable);
-
-    function normalizeKey(k) {
-        k = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if(['name', 'participantname'].includes(k)) return 'name';
-        if(['rollno', 'rollnumber', 'roll'].includes(k)) return 'roll_no';
-        if(['event', 'eventname'].includes(k)) return 'event';
-        if(['stay', 'accommodation', 'hostel'].includes(k)) return 'stay';
-        if(['photo', 'image', 'picture'].includes(k)) return 'photo';
-        return k;
     }
 
-    function handleFile(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-        document.getElementById('excel-file-name').innerText = `Loaded: ${file.name}`;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            globalData = rawJson.map(row => {
-                const normRow = {};
-                for(let key in row) { normRow[normalizeKey(key)] = row[key]; }
-                return normRow;
-            });
-            processImportedData();
-        };
-        reader.readAsArrayBuffer(file);
-    }
-
-    function processImportedData() {
-        const events = new Set();
-        globalData.forEach(row => { if(row.event) events.add(row.event.toString().trim()); });
-        eventsList = Array.from(events);
-        const eventSelect = document.getElementById('event-select');
-        eventSelect.innerHTML = eventsList.map(e => `<option value="${e}">${e}</option>`).join('');
-        document.getElementById('event-selection-card').classList.remove('d-none');
-        document.getElementById('preview-card').classList.remove('d-none');
-        eventSelect.addEventListener('change', filterTable);
-        filterTable();
-    }
-
-    function resolvePhoto(row) {
-        if(!row) return null;
-        const roll = (row.roll_no || '').toString().toLowerCase().trim();
-        const photoCol = (row.photo || '').toString().toLowerCase().trim();
-        if(roll && photoMap.has(roll)) return photoMap.get(roll);
-        if(photoCol && photoMap.has(photoCol)) return photoMap.get(photoCol);
-        if(row.photo && (row.photo.startsWith('data:') || row.photo.startsWith('http'))) return row.photo;
-        return null;
-    }
-
-    function filterTable() {
-        const selectedEvent = document.getElementById('event-select').value;
-        const allowMissingPhoto = document.getElementById('allow-missing-photo').checked;
-        const rollTracker = new Set();
+    async function captureAndScan() {
+        if(video.readyState !== video.HAVE_ENOUGH_DATA) return;
         
-        currentFilteredData = globalData.filter(row => row.event && row.event.toString().trim() === selectedEvent).map(row => {
-            let status = 'Ready', statusClass = 'status-ready', canSelect = true;
-            if(!row.name || !row.roll_no) { status = 'Invalid Data'; statusClass = 'status-error'; canSelect = false; } 
-            else if (rollTracker.has(row.roll_no)) { status = 'Duplicate Roll'; statusClass = 'status-error'; canSelect = false; } 
-            else { rollTracker.add(row.roll_no); }
-            
-            const resolvedPhoto = resolvePhoto(row);
-            if(status === 'Ready' && !resolvedPhoto) {
-                if (allowMissingPhoto) { status = 'No Photo (Placeholder)'; statusClass = 'status-warning'; } 
-                else { status = 'Missing Photo'; statusClass = 'status-error'; canSelect = false; }
-            }
-            return { ...row, _resolvedPhoto: resolvedPhoto, _status: status, _statusClass: statusClass, _selected: canSelect, _canSelect: canSelect };
-        });
+        const flash = document.getElementById('flash-effect');
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100);
 
-        document.getElementById('total-participants-txt').innerText = `Total Participants for ${selectedEvent}: ${currentFilteredData.length}`;
-        renderTable();
+        canvasElement.height = video.videoHeight;
+        canvasElement.width = video.videoWidth;
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+        
+        if (code) { await processQRCode(code.data); } 
+        else { showResultModal("✕ NOT DETECTED", "res-error", "No QR Code found in frame.<br><br>Make sure the QR is clear and well-lit.", null); }
     }
 
-    function renderTable() {
-        const tbody = document.querySelector('#participant-table tbody');
-        tbody.innerHTML = currentFilteredData.map((row, index) => `
-            <tr>
-                <td><input type="checkbox" class="row-checkbox" data-index="${index}" ${row._selected ? 'checked' : ''} ${!row._canSelect ? 'disabled' : ''}></td>
-                <td><img class="thumb-preview" src="${row._resolvedPhoto || APP_CONFIG.defaultImage}" alt="photo" /></td>
-                <td>${row.roll_no || 'N/A'}</td>
-                <td>${row.name || 'N/A'}</td>
-                <td>${row.event || 'N/A'}</td>
-                <td>${row.stay || 'N/A'}</td>
-                <td><span class="status-badge ${row._statusClass}">${row._status}</span></td>
-            </tr>`).join('');
-    }
+    async function processQRCode(data) {
+        const parts = data.split('|');
+        let version, eventStr, rollNo, name, stay, uid, signature, baseMessage;
 
-    /* CARD GENERATION - UPDATED PAYLOAD TO INCLUDE NAME AND STAY */
-    document.getElementById('btn-generate').addEventListener('click', async () => {
-        const activeKey = document.getElementById('active-key').value.trim();
-        if(!activeKey || activeKey.length !== 64) { alert("Please enter a valid 64-character hex authentication key in Step 1."); return; }
-
-        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-        const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
-        const toProcess = selectedIndices.map(i => currentFilteredData[i]);
-
-        if(toProcess.length === 0) { alert("No valid participants selected."); return; }
-        if(!confirm(`Generate ${toProcess.length} ID Cards using the current Key?`)) return;
-
-        document.getElementById('btn-generate').disabled = true;
-        const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        progressContainer.style.display = 'block';
-        progressText.classList.remove('d-none');
-        
-        zip = new JSZip();
-        const imgFolder = zip.folder(`${toProcess[0].event.replace(/\s+/g, '_')}_ID_CARDS`);
-        
-        for(let i=0; i < toProcess.length; i++) {
-            const p = toProcess[i];
-            progressText.innerText = `Generating ${i+1} / ${toProcess.length}...`;
-            progressBar.style.width = `${((i+1)/toProcess.length)*100}%`;
-            
-            try {
-                const uid = generateUniqueId(p.event);
-                
-                // NEW: Inject Name and Stay safely into the QR Payload
-                const safeName = (p.name || 'Unknown').toString().replace(/\|/g, '');
-                const safeStay = (p.stay || 'N/A').toString().replace(/\|/g, '');
-                const basePayload = `${APP_CONFIG.qrVersion}|${p.event}|${p.roll_no}|${safeName}|${safeStay}|${uid}`;
-                
-                const signature = await signMessage(activeKey, basePayload);
-                const finalPayload = `${basePayload}|${signature}`;
-
-                document.getElementById('rc-event').innerText = p.event;
-                document.getElementById('rc-name').innerText = p.name;
-                document.getElementById('rc-roll').innerText = `Roll No: ${p.roll_no}`;
-                document.getElementById('rc-stay').innerText = `Stay: ${p.stay || 'N/A'}`;
-                document.getElementById('rc-uid').innerText = `ID: ${uid}`;
-                document.getElementById('rc-photo').src = p._resolvedPhoto || APP_CONFIG.defaultImage;
-
-                const qrContainer = document.getElementById('rc-qr');
-                qrContainer.innerHTML = ""; 
-                new QRCode(qrContainer, { text: finalPayload, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
-
-                await new Promise(r => setTimeout(r, 60));
-
-                const canvas = await html2canvas(document.getElementById('render-card'), { scale: 2, useCORS: true, logging: false });
-                const dataUrl = canvas.toDataURL("image/png");
-                const base64Data = dataUrl.split(',')[1];
-                const safeFileName = p.roll_no.toString().replace(/[^a-zA-Z0-9-]/g, '_');
-                imgFolder.file(`${safeFileName}.png`, base64Data, {base64: true});
-            } catch (err) { console.error("Failed for", p.roll_no, err); }
+        if (parts.length === 5) {
+            [version, eventStr, rollNo, uid, signature] = parts;
+            name = "N/A (Old QR)"; stay = "N/A";
+            baseMessage = `${version}|${eventStr}|${rollNo}|${uid}`;
+        } else if (parts.length === 7) {
+            [version, eventStr, rollNo, name, stay, uid, signature] = parts;
+            baseMessage = `${version}|${eventStr}|${rollNo}|${name}|${stay}|${uid}`;
+        } else {
+            showResultModal("✕ UNAUTHORIZED", "res-error", "Invalid or Tampered QR format.", null); return;
         }
 
-        progressText.innerText = `Generation Complete. Zipping files...`;
-        zip.generateAsync({type:"blob"}).then(function(content) {
-            saveAs(content, `${toProcess[0].event.replace(/\s+/g, '_')}_ID_CARDS.zip`);
-            document.getElementById('btn-generate').disabled = false;
-            progressText.innerText = `Downloaded Successfully!`;
+        const isValid = await verifySignature(activeKeyHex, baseMessage, signature);
+        if(!isValid) { showResultModal("✕ UNAUTHORIZED", "res-error", "Signature mismatch.<br>Fake QR or wrong key.", null); return; }
+
+        if(isSearchMode) { executeSearch(eventStr, uid, rollNo, name); return; }
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        const folderName = `${eventStr.replace(/\s+/g, '_')}-${dateStr}`;
+        const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+        
+        if(!appLogs[folderName]) appLogs[folderName] = {};
+        if(!appLogs[folderName][uid]) appLogs[folderName][uid] = { rollNo: rollNo, name: name, stay: stay, history: [] };
+        if(name !== "N/A (Old QR)") { appLogs[folderName][uid].name = name; appLogs[folderName][uid].stay = stay; }
+        
+        const history = appLogs[folderName][uid].history;
+        const lastAction = history.length > 0 ? history[history.length - 1].action : 'Exit';
+        const newAction = lastAction === 'Entry' ? 'Exit' : 'Entry';
+        
+        history.push({ action: newAction, time: timeNow });
+        localStorage.setItem('event_logs_db', JSON.stringify(appLogs));
+        
+        const title = newAction === 'Entry' ? "✓ ENTRY LOGGED" : "✓ EXIT LOGGED";
+        const colorClass = newAction === 'Entry' ? "res-success" : "res-exit";
+        
+        const details = `
+            <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${name}</span></div>
+            <div class="detail-row"><span class="detail-label">Roll No</span><span class="detail-value">${rollNo}</span></div>
+            <div class="detail-row"><span class="detail-label">Event</span><span class="detail-value">${eventStr}</span></div>
+            <div class="detail-row" style="margin-top: 10px; border-top: 2px solid #334155; padding-top: 15px;"><span class="detail-label">Action</span><span class="detail-value" style="color: var(--${newAction==='Entry'?'success':'exit-color'}); font-size: 18px;">${newAction}</span></div>
+            <div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">${timeNow}</span></div>
+        `;
+        showResultModal(title, colorClass, "", details);
+    }
+
+    function showResultModal(title, colorClass, errorMsg, detailsHTML) {
+        const modal = document.getElementById('result-modal');
+        document.getElementById('res-title').className = `result-title ${colorClass}`;
+        document.getElementById('res-icon').className = `result-icon ${colorClass}`;
+        document.getElementById('res-title').innerHTML = title;
+        document.getElementById('res-icon').innerHTML = title.includes('✕') ? '✕' : (title.includes('ENTRY') ? '⇲' : '⇱');
+        
+        const detailsContainer = document.getElementById('res-details');
+        if (detailsHTML) { detailsContainer.innerHTML = detailsHTML; } 
+        else { detailsContainer.innerHTML = `<div style="text-align:center; color:#e2e8f0; font-size:15px;">${errorMsg}</div>`; }
+        modal.className = 'show';
+    }
+    function closeResult() { document.getElementById('result-modal').classList.remove('show'); }
+
+    // --- Search Features ---
+    function activateSearchMode() {
+        isSearchMode = true; document.getElementById('search-mode-banner').style.display = 'block';
+        switchTab('scanner-tab', 'nav-scan');
+    }
+    function executeSearch(eventStr, uid, rollNo, name) {
+        isSearchMode = false; document.getElementById('search-mode-banner').style.display = 'none';
+        let foundHistory = [];
+        for(let folder in appLogs) {
+            if(appLogs[folder][uid]) { appLogs[folder][uid].history.forEach(log => { foundHistory.push({ folder: folder, ...log }); }); }
+        }
+        const searchDetails = document.getElementById('search-details');
+        if(foundHistory.length === 0) { searchDetails.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:10px;">No history found for ${name}</p>`; } 
+        else {
+            let html = `<div style="margin-bottom:10px; font-weight:bold;">${name} (Roll: ${rollNo})</div>`;
+            foundHistory.forEach(log => {
+                const badgeClass = log.action === 'Entry' ? 'entry-badge' : 'exit-badge';
+                html += `<div class="log-entry-row"><span><span class="${badgeClass}">${log.action}</span> <span style="color:#94a3b8; font-size:12px; margin-left:5px;">${log.folder}</span></span><span>${log.time}</span></div>`;
+            });
+            searchDetails.innerHTML = html;
+        }
+        document.getElementById('search-result-container').style.display = 'block';
+        switchTab('logs-tab', 'nav-logs');
+    }
+    function clearSearch() { document.getElementById('search-result-container').style.display = 'none'; }
+
+    // --- Folder / Logging Features ---
+    function renderFolders() {
+        const container = document.getElementById('folders-container');
+        container.innerHTML = "";
+        const folders = Object.keys(appLogs).sort().reverse();
+        
+        if(folders.length === 0) { container.innerHTML = `<div style="text-align:center; color:#94a3b8; margin-top:40px;">No scan data logged yet.</div>`; return; }
+        
+        folders.forEach(folderName => {
+            const data = appLogs[folderName];
+            const uniqueUsers = Object.keys(data).length;
+            let totalScans = 0; for(let u in data) { totalScans += data[u].history.length; }
+            
+            const card = document.createElement('div');
+            card.className = 'folder-card';
+            card.onclick = () => openFolderView(folderName);
+            card.innerHTML = `
+                <div class="folder-header">
+                    <div>
+                        <div class="folder-title">📁 ${folderName.replace(/-/g, ' ')}</div>
+                        <div class="folder-stats">${uniqueUsers} Users | ${totalScans} Total Scans</div>
+                    </div>
+                    <div style="color: #94a3b8;">❯</div>
+                </div>`;
+            container.appendChild(card);
         });
-    });
+    }
+
+    function openFolderView(folderName) {
+        currentOpenFolder = folderName;
+        const data = appLogs[folderName];
+        
+        // Calculate Stats
+        let uniqueAttended = Object.keys(data).length;
+        let totalEntries = 0;
+        for(let uid in data) {
+            totalEntries += data[uid].history.filter(h => h.action === 'Entry').length;
+        }
+
+        document.getElementById('detail-folder-title').innerText = folderName.replace(/-/g, ' ');
+        document.getElementById('stat-attended').innerText = uniqueAttended;
+        document.getElementById('stat-entries').innerText = totalEntries;
+
+        const tbody = document.getElementById('detail-table-body');
+        let html = '';
+        
+        const users = Object.values(data).sort((a,b) => (a.rollNo || '').localeCompare(b.rollNo || ''));
+        
+        users.forEach(user => {
+            const entries = user.history.filter(h => h.action === 'Entry').map(h => h.time).join('<br>');
+            const exits = user.history.filter(h => h.action === 'Exit').map(h => h.time).join('<br>');
+            
+            html += `
+                <tr>
+                    <td>
+                        <div style="font-weight: bold; color: var(--text-light); margin-bottom: 3px;">${user.name || 'N/A'}</div>
+                        <div style="font-size: 12px; color: #94a3b8;">${user.rollNo}</div>
+                    </td>
+                    <td style="color: var(--success);">${entries || '-'}</td>
+                    <td style="color: var(--exit-color);">${exits || '-'}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+
+        document.getElementById('folder-list-view').style.display = 'none';
+        document.getElementById('folder-detail-view').style.display = 'flex';
+    }
+
+    function closeFolderView() {
+        document.getElementById('folder-list-view').style.display = 'block';
+        document.getElementById('folder-detail-view').style.display = 'none';
+        currentOpenFolder = "";
+    }
+
+    // --- PDF EXPORT ---
+    function exportToPDF() {
+        if(!currentOpenFolder || !appLogs[currentOpenFolder]) return;
+        const folderName = currentOpenFolder;
+        const data = appLogs[currentOpenFolder];
+        
+        const printDiv = document.createElement('div');
+        printDiv.style.padding = '20px';
+        printDiv.style.fontFamily = 'Arial, sans-serif';
+        printDiv.style.color = '#000';
+        
+        let uniqueAttended = Object.keys(data).length;
+        let totalEntries = 0;
+        for(let uid in data) { totalEntries += data[uid].history.filter(h => h.action === 'Entry').length; }
+
+        let tableHtml = `
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="margin-bottom: 5px; color: #1e3a8a;">Event Logs: ${folderName.replace(/-/g, ' ')}</h2>
+                <p style="color: #555; margin: 0; font-size: 14px;">Total Attended: <b>${uniqueAttended}</b> | Total Entries: <b>${totalEntries}</b></p>
+                <p style="color: #777; margin-top: 5px; font-size: 12px;">Generated: ${new Date().toLocaleString()}</p>
+            </div>
+            <table style="width:100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                <thead>
+                    <tr style="background-color: #f1f5f9;">
+                        <th style="border: 1px solid #cbd5e1; padding: 10px;">Name & Roll No</th>
+                        <th style="border: 1px solid #cbd5e1; padding: 10px;">Entry Times</th>
+                        <th style="border: 1px solid #cbd5e1; padding: 10px;">Exit Times</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        const users = Object.values(data).sort((a,b) => (a.rollNo || '').localeCompare(b.rollNo || ''));
+        users.forEach(user => {
+            const entries = user.history.filter(h => h.action === 'Entry').map(h => h.time).join('<br>');
+            const exits = user.history.filter(h => h.action === 'Exit').map(h => h.time).join('<br>');
+            tableHtml += `
+                <tr>
+                    <td style="border: 1px solid #cbd5e1; padding: 10px;">
+                        <strong>${user.name || 'N/A'}</strong><br>
+                        <span style="color: #475569; font-size: 12px;">Roll: ${user.rollNo}</span>
+                    </td>
+                    <td style="border: 1px solid #cbd5e1; padding: 10px; color: #16a34a;">${entries || '-'}</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 10px; color: #2563eb;">${exits || '-'}</td>
+                </tr>
+            `;
+        });
+        
+        tableHtml += `</tbody></table>`;
+        printDiv.innerHTML = tableHtml;
+
+        const opt = {
+            margin:       0.5,
+            filename:     `${folderName}_Attendance_Logs.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(printDiv).save();
+    }
 </script>
 </body>
 </html>
