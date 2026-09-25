@@ -2,144 +2,187 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event QR Authenticator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Event QR Authenticator App</title>
     <!-- jsQR Library -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     
     <style>
         :root {
-            --primary: #1e3a8a;
-            --bg-dark: #111827;
-            --text-light: #f3f4f6;
+            --primary: #2563eb;
+            --bg-dark: #0f172a;
+            --surface: #1e293b;
+            --text-light: #f8fafc;
             --success: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
+            --exit-color: #3b82f6;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
         body { background-color: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
         /* Setup Screen */
-        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; text-align: center; }
-        .setup-card { background: #1f2937; padding: 30px; border-radius: 12px; max-width: 400px; width: 100%; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); }
-        .setup-card h2 { margin-bottom: 20px; }
-        .form-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 8px; font-size: 14px; color: #9ca3af; }
-        input[type="password"], input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #374151; background: #374151; color: white; outline: none; }
-        input:focus { border-color: var(--success); }
+        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; z-index: 100; background: var(--bg-dark); }
+        .setup-card { background: var(--surface); padding: 30px 20px; border-radius: 16px; width: 100%; max-width: 400px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; }
+        input[type="password"] { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; outline: none; font-size: 16px; }
+        input:focus { border-color: var(--primary); }
+        .btn { padding: 14px 20px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
         
-        .btn { padding: 12px 20px; width: 100%; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px; text-align: center; }
-        .btn-primary { background: var(--success); color: white; }
-        .btn-primary:hover { background: #059669; }
+        /* Main App Layout */
+        #main-app { display: none; flex-direction: column; height: 100vh; position: relative; }
+        .tab-content { flex: 1; overflow-y: auto; display: none; position: relative; }
+        .tab-content.active { display: flex; flex-direction: column; }
         
-        /* Scanner Screen */
-        #scanner-screen { display: none; flex-direction: column; height: 100vh; position: relative; }
-        .scanner-header { background: rgba(0,0,0,0.8); padding: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 10; position: absolute; width: 100%; top: 0; }
-        #video-container { flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; }
+        /* Bottom Navigation */
+        .bottom-nav { display: flex; background: var(--surface); border-top: 1px solid #334155; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; padding: 15px 0; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item svg { width: 24px; height: 24px; fill: currentColor; }
+        
+        /* Scanner View */
+        #video-container { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; }
-        .scan-frame { position: absolute; width: 250px; height: 250px; border: 4px solid rgba(255, 255, 255, 0.5); border-radius: 20px; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center;}
-        .scan-frame::after { content: 'Align QR Code Here'; color: rgba(255,255,255,0.7); font-size: 14px; font-weight: bold; position: absolute; bottom: -30px; width: 100%; text-align: center;}
+        canvas { display: none; }
         
-        /* Fallback Container */
-        #fallback-container { flex: 1; display: none; flex-direction: column; justify-content: center; align-items: center; background: #000; padding: 20px; text-align: center; margin-top: 60px; }
+        .scan-overlay-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
+        .scan-frame { width: 250px; height: 250px; border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 20px; position: relative; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6); }
+        .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
         
-        /* Result Modal */
-        #result-modal { display: none; position: absolute; bottom: 0; left: 0; width: 100%; background: #1f2937; padding: 25px 20px; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 20; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); transform: translateY(100%); transition: transform 0.3s ease-out; }
-        #result-modal.show { transform: translateY(0); display: block; }
+        /* Camera Flash Effect */
+        #flash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 10; }
         
-        .result-banner { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .status-verified { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
-        .status-invalid { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-        .status-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+        /* Search Mode Banner */
+        #search-mode-banner { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; }
         
-        .result-details { margin-bottom: 20px; display: grid; grid-template-columns: 1fr; gap: 10px;}
-        .detail-row { display: flex; justify-content: space-between; border-bottom: 1px solid #374151; padding-bottom: 8px; }
-        .detail-label { color: #9ca3af; font-size: 14px; }
-        .detail-value { font-weight: 600; text-align: right; word-break: break-all;}
+        /* Full Screen Result Modal */
+        #result-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 50; flex-direction: column; justify-content: center; align-items: center; padding: 20px; cursor: pointer; text-align: center; }
+        #result-modal.show { display: flex; }
+        .result-icon { font-size: 70px; margin-bottom: 10px; }
+        .result-title { font-size: 28px; font-weight: bold; margin-bottom: 20px; }
+        .result-details { background: var(--surface); padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; margin-bottom: 30px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: #94a3b8; font-size: 14px; }
+        .detail-value { font-weight: 600; font-size: 15px; }
+        .tap-to-close { color: #94a3b8; font-size: 14px; animation: pulse 1.5s infinite; }
         
+        /* Result Colors */
+        .res-success { color: var(--success); }
+        .res-error { color: var(--danger); }
+        .res-exit { color: var(--exit-color); }
+        
+        /* Logs View */
+        #logs-tab { padding: 20px; background: var(--bg-dark); }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .folder-card { background: var(--surface); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .folder-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .folder-title { font-weight: bold; font-size: 16px; }
+        .folder-stats { font-size: 12px; color: #94a3b8; }
+        .folder-actions { padding: 10px 15px; background: rgba(0,0,0,0.2); display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-sm { padding: 8px 12px; border-radius: 6px; font-size: 12px; border: none; font-weight: bold; cursor: pointer; color: white; }
+        
+        /* Search Result UI */
+        #search-result-container { display: none; background: var(--surface); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 2px solid var(--warning); }
+        .log-entry-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #334155; font-size: 14px; }
+        .entry-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(16,185,129,0.2); color: var(--success); }
+        .exit-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(59,130,246,0.2); color: var(--exit-color); }
+        
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
         .d-none { display: none !important; }
     </style>
 </head>
 <body>
 
-    <!-- STEP 1: KEY SETUP -->
+    <!-- SETUP SCREEN -->
     <div id="setup-screen">
         <div class="setup-card">
-            <h2>Authentication Setup</h2>
+            <h2 style="margin-bottom: 20px; text-align: center;">Authenticator Login</h2>
             <div class="form-group">
-                <label>Authentication Key (64-char Hex)</label>
-                <input type="password" id="auth-key" placeholder="Paste the secret key here" />
+                <label>Event Secret Key (64-char Hex)</label>
+                <input type="password" id="auth-key" placeholder="Paste key here..." />
             </div>
-            <div class="form-group">
-                <label>Expected Event (Optional)</label>
-                <input type="text" id="expected-event" placeholder="e.g. TECHFEST 2026" />
-            </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
-                <input type="checkbox" id="prevent-duplicates" checked style="width:16px; height:16px; accent-color: var(--success);">
-                <label style="margin:0; cursor:pointer;" for="prevent-duplicates">Prevent Duplicate Scans</label>
-            </div>
-            <button class="btn btn-primary" onclick="initScanner()">Start Authenticator</button>
+            <button class="btn btn-primary" onclick="initApp()">Start Scanning</button>
         </div>
     </div>
 
-    <!-- STEP 2: SCANNER -->
-    <div id="scanner-screen">
-        <div class="scanner-header">
-            <div style="font-weight: bold; font-size: 18px;">Scanner Active</div>
-            <button style="background: none; border: 1px solid white; color: white; padding: 5px 10px; border-radius: 4px; cursor:pointer;" onclick="stopScanner()">Exit</button>
-        </div>
-        
-        <!-- Live Video Container -->
-        <div id="video-container">
-            <video id="qr-video" playsinline></video>
-            <canvas id="qr-canvas"></canvas>
-            <div class="scan-frame"></div>
+    <!-- MAIN APP -->
+    <div id="main-app">
+        <!-- SCANNER TAB -->
+        <div id="scanner-tab" class="tab-content active">
+            <div id="search-mode-banner">SEARCH MODE ACTIVE<br><span style="font-size:12px; font-weight:normal;">Tap QR to find history.</span></div>
+            <div id="video-container" onclick="captureAndScan()">
+                <video id="qr-video" playsinline></video>
+                <canvas id="qr-canvas"></canvas>
+                <div class="scan-overlay-ui">
+                    <div class="scan-frame"></div>
+                </div>
+                <div class="tap-instruction">👆 Tap anywhere on screen to scan</div>
+                <div id="flash-effect"></div>
+            </div>
+            
+            <!-- RESULT OVERLAY (Dismissed by tapping anywhere) -->
+            <div id="result-modal" onclick="closeResult()">
+                <div class="result-icon" id="res-icon">✓</div>
+                <div class="result-title" id="res-title">VERIFIED</div>
+                <div class="result-details" id="res-details"></div>
+                <div class="tap-to-close">👆 Tap anywhere to scan next</div>
+            </div>
         </div>
 
-        <!-- Fallback Container (For Android devices blocking live video) -->
-        <div id="fallback-container">
-            <h3 style="margin-bottom: 15px; color: var(--warning);">Live Camera Blocked</h3>
-            <p style="margin-bottom: 25px; color: #9ca3af; font-size: 14px;">
-                Your browser requires HTTPS to use the live camera. 
-                Use the button below to open your native camera and snap a photo of the QR code instead.
-            </p>
-            <label class="btn btn-primary" style="display:inline-block; cursor:pointer;">
-                Take Photo of QR Code
-                <input type="file" accept="image/*" capture="environment" class="d-none" id="file-qr-input">
-            </label>
-        </div>
-        
-        <!-- RESULT MODAL -->
-        <div id="result-modal">
-            <div id="result-banner" class="result-banner status-verified">✓ VERIFIED</div>
-            <div id="result-details" class="result-details">
-                <!-- Details injected here -->
+        <!-- LOGS TAB -->
+        <div id="logs-tab" class="tab-content">
+            <div class="log-header">
+                <h2>Data Logs</h2>
+                <button class="btn-sm" style="background: var(--warning); color: #000;" onclick="activateSearchMode()">🔍 Search QR</button>
             </div>
-            <button class="btn" style="background: #374151; color: white;" onclick="resumeScanner()">Scan Next</button>
+            
+            <div id="search-result-container">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="color: var(--warning);">Search Result</h3>
+                    <button class="btn-sm" style="background:#334155;" onclick="clearSearch()">Clear</button>
+                </div>
+                <div id="search-details"></div>
+            </div>
+
+            <div id="folders-container">
+                <!-- Folders injected here -->
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <div class="bottom-nav">
+            <div class="nav-item active" id="nav-scan" onclick="switchTab('scanner-tab', 'nav-scan')">
+                <svg viewBox="0 0 24 24"><path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z"/></svg>
+                Scanner
+            </div>
+            <div class="nav-item" id="nav-logs" onclick="switchTab('logs-tab', 'nav-logs')">
+                <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+                Logs
+            </div>
         </div>
     </div>
 
 <script>
     let activeKeyHex = "";
-    let expectedEvent = "";
-    let preventDuplicates = true;
     let videoStream = null;
-    let scanning = false;
+    let isSearchMode = false;
     
-    // Canvas context for JSQR
+    // Application Data structure for Logs
+    let appLogs = JSON.parse(localStorage.getItem('event_logs_db') || '{}');
+
+    // DOM Elements
     const video = document.getElementById("qr-video");
     const canvasElement = document.getElementById("qr-canvas");
-    const canvas = canvasElement.getContext("2d");
+    const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
     
-    let scanHistory = JSON.parse(localStorage.getItem('qr_scans') || '{}');
-
     // -- Crypto Utils -- //
     async function importKey(hexKey) {
         const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
-        return await window.crypto.subtle.importKey(
-            "raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-        );
+        return await window.crypto.subtle.importKey("raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     }
 
     async function verifySignature(hexKey, message, providedSignatureHex) {
@@ -148,197 +191,296 @@
             const enc = new TextEncoder();
             const signature = await window.crypto.subtle.sign("HMAC", key, enc.encode(message));
             const calculatedSignature = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
-            
             if (calculatedSignature.length !== providedSignatureHex.length) return false;
             let mismatch = 0;
             for (let i = 0; i < calculatedSignature.length; i++) {
                 mismatch |= (calculatedSignature.charCodeAt(i) ^ providedSignatureHex.charCodeAt(i));
             }
             return mismatch === 0;
-        } catch (e) {
-            return false;
-        }
+        } catch (e) { return false; }
     }
 
-    // -- App Logic -- //
-    function initScanner() {
+    // -- App Init & Navigation -- //
+    function initApp() {
         const key = document.getElementById('auth-key').value.trim();
         if(key.length !== 64) {
-            alert("Invalid key format. Please enter the 64-character hex key generated by the ID Generator.");
+            alert("Invalid key. Please enter the 64-character hex key.");
             return;
         }
         activeKeyHex = key;
-        expectedEvent = document.getElementById('expected-event').value.trim();
-        preventDuplicates = document.getElementById('prevent-duplicates').checked;
-        
         document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('scanner-screen').style.display = 'flex';
+        document.getElementById('main-app').style.display = 'flex';
         
         startCamera();
+        renderLogs();
+    }
+
+    function switchTab(tabId, navId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        document.getElementById(navId).classList.add('active');
+        
+        if(tabId === 'scanner-tab' && !videoStream) startCamera();
+        if(tabId === 'logs-tab') renderLogs();
     }
 
     function startCamera() {
-        // Reset Views
-        document.getElementById('video-container').style.display = 'flex';
-        document.getElementById('fallback-container').style.display = 'none';
-
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            activateFallback();
+            alert("Camera not supported or blocked by browser settings.");
             return;
         }
-
-        // Try environment (rear) camera first
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(function(stream) {
-            handleStreamSuccess(stream);
+            videoStream = stream;
+            video.srcObject = stream;
+            video.setAttribute("playsinline", true);
+            video.play();
         })
         .catch(function(err) {
-            // Fallback: Try any camera if environment specified fails
-            navigator.mediaDevices.getUserMedia({ video: true })
-            .then(function(stream) {
-                handleStreamSuccess(stream);
-            })
-            .catch(function(err2) {
-                console.error("Camera access denied:", err2);
-                activateFallback();
-            });
+            navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+                videoStream = stream;
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.play();
+            }).catch(e => alert("Camera permission denied."));
         });
     }
 
-    function handleStreamSuccess(stream) {
-        videoStream = stream;
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        video.play();
-        scanning = true;
-        requestAnimationFrame(tick);
-    }
-
-    function activateFallback() {
-        document.getElementById('video-container').style.display = 'none';
-        document.getElementById('fallback-container').style.display = 'flex';
-    }
-
-    // Handle Native Photo Input (Fallback)
-    document.getElementById('file-qr-input').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+    // -- Tap to Scan Logic -- //
+    async function captureAndScan() {
+        if(video.readyState !== video.HAVE_ENOUGH_DATA) return;
         
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const img = new Image();
-            img.onload = function() {
-                canvasElement.width = img.width;
-                canvasElement.height = img.height;
-                canvas.drawImage(img, 0, 0, img.width, img.height);
-                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
-                });
-                
-                if (code) {
-                    processQRCode(code.data);
-                } else {
-                    alert("Could not read a QR code from that image. Please try again and ensure the QR is clear.");
-                    document.getElementById('file-qr-input').value = ""; // reset
-                }
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
+        // Flash Effect
+        const flash = document.getElementById('flash-effect');
+        flash.style.opacity = '1';
+        setTimeout(() => flash.style.opacity = '0', 100);
 
-    function stopScanner() {
-        if(videoStream) {
-            videoStream.getTracks().forEach(track => track.stop());
-        }
-        scanning = false;
-        document.getElementById('scanner-screen').style.display = 'none';
-        document.getElementById('setup-screen').style.display = 'flex';
-    }
-
-    function tick() {
-        if (!scanning) return;
+        // Process Frame
+        canvasElement.height = video.videoHeight;
+        canvasElement.width = video.videoWidth;
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
         
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvasElement.height = video.videoHeight;
-            canvasElement.width = video.videoWidth;
-            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-            var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-            var code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-            });
-            
-            if (code) {
-                scanning = false;
-                processQRCode(code.data);
-                return;
-            }
+        if (code) {
+            await processQRCode(code.data);
+        } else {
+            showResultModal("✕ NOT DETECTED", "res-error", "No QR Code found in frame.<br><br>Make sure the QR is clear and well-lit.", null);
         }
-        requestAnimationFrame(tick);
     }
 
     async function processQRCode(data) {
         const parts = data.split('|');
-        const modal = document.getElementById('result-modal');
-        const banner = document.getElementById('result-banner');
-        const details = document.getElementById('result-details');
-        
-        modal.classList.add('show');
-        
         if(parts.length !== 5) {
-            showResult(banner, details, "✕ INVALID FORMAT", "status-invalid", "The scanned QR code is not generated by this system.");
+            showResultModal("✕ UNAUTHORIZED", "res-error", "Invalid QR format.", null);
             return;
         }
 
         const [version, eventStr, rollNo, uid, signature] = parts;
         const baseMessage = `${version}|${eventStr}|${rollNo}|${uid}`;
-        
         const isValid = await verifySignature(activeKeyHex, baseMessage, signature);
         
         if(!isValid) {
-            showResult(banner, details, "✕ TAMPERED / INVALID KEY", "status-invalid", "Signature mismatch. Fake QR or wrong key.");
+            showResultModal("✕ UNAUTHORIZED", "res-error", "Signature mismatch.<br>Fake QR or wrong key.", null);
             return;
         }
 
-        if(expectedEvent && eventStr.toLowerCase() !== expectedEvent.toLowerCase()) {
-            showResult(banner, details, "⚠ EVENT MISMATCH", "status-warning", `Valid QR, but belongs to event: ${eventStr}`);
+        if(isSearchMode) {
+            executeSearch(eventStr, uid, rollNo);
             return;
         }
 
-        if(preventDuplicates && scanHistory[uid]) {
-            showResult(banner, details, "⚠ ALREADY SCANNED", "status-warning", `ID: ${uid}<br>Scanned at: ${new Date(scanHistory[uid]).toLocaleTimeString()}`);
-            return;
-        }
-
-        // Success
-        scanHistory[uid] = Date.now();
-        localStorage.setItem('qr_scans', JSON.stringify(scanHistory));
+        // --- Logging Logic (Entry/Exit) --- //
+        const dateStr = new Date().toISOString().split('T')[0];
+        const folderName = `${eventStr.replace(/\s+/g, '_')}-${dateStr}`;
+        const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
         
-        banner.className = "result-banner status-verified";
-        banner.innerHTML = "✓ VERIFIED PARTICIPANT";
-        details.innerHTML = `
-            <div class="detail-row"><span class="detail-label">Name / Roll No</span><span class="detail-value">${rollNo}</span></div>
-            <div class="detail-row"><span class="detail-label">Event</span><span class="detail-value">${eventStr}</span></div>
-            <div class="detail-row"><span class="detail-label">Unique ID</span><span class="detail-value">${uid}</span></div>
+        if(!appLogs[folderName]) appLogs[folderName] = {};
+        if(!appLogs[folderName][uid]) appLogs[folderName][uid] = { rollNo: rollNo, history: [] };
+        
+        const history = appLogs[folderName][uid].history;
+        const lastAction = history.length > 0 ? history[history.length - 1].action : 'Exit';
+        const newAction = lastAction === 'Entry' ? 'Exit' : 'Entry';
+        
+        history.push({ action: newAction, time: timeNow });
+        localStorage.setItem('event_logs_db', JSON.stringify(appLogs));
+        
+        // Prepare Success UI based on action
+        const title = newAction === 'Entry' ? "✓ ENTRY LOGGED" : "✓ EXIT LOGGED";
+        const colorClass = newAction === 'Entry' ? "res-success" : "res-exit";
+        
+        const details = `
+            <div class="detail-row"><span class="detail-label">Roll No</span><span class="detail-value">${rollNo}</span></div>
+            <div class="detail-row"><span class="detail-label">Action</span><span class="detail-value" style="color: var(--${newAction==='Entry'?'success':'exit-color'});">${newAction}</span></div>
+            <div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">${timeNow}</span></div>
         `;
-    }
-
-    function showResult(banner, details, title, cssClass, message) {
-        banner.className = `result-banner ${cssClass}`;
-        banner.innerHTML = title;
-        details.innerHTML = `<div style="text-align:center; padding:10px 0;">${message}</div>`;
-    }
-
-    function resumeScanner() {
-        document.getElementById('result-modal').classList.remove('show');
-        document.getElementById('file-qr-input').value = ""; // clear file input
         
-        // Only resume live ticking if the video stream is active
-        if (videoStream) {
-            scanning = true;
-            requestAnimationFrame(tick);
+        showResultModal(title, colorClass, "", details);
+    }
+
+    // -- Result Modal Handling -- //
+    function showResultModal(title, colorClass, errorMsg, detailsHTML) {
+        const modal = document.getElementById('result-modal');
+        const icon = document.getElementById('res-icon');
+        const titleEl = document.getElementById('res-title');
+        const detailsContainer = document.getElementById('res-details');
+        
+        modal.className = 'show'; // removes other classes, adds show
+        titleEl.className = `result-title ${colorClass}`;
+        icon.className = `result-icon ${colorClass}`;
+        
+        titleEl.innerHTML = title;
+        icon.innerHTML = title.includes('✕') ? '✕' : (title.includes('ENTRY') ? '⇲' : '⇱');
+        
+        if (detailsHTML) {
+            detailsContainer.innerHTML = detailsHTML;
+            detailsContainer.style.display = 'block';
+        } else {
+            detailsContainer.innerHTML = `<div style="text-align:center; color:#e2e8f0; font-size:15px;">${errorMsg}</div>`;
+            detailsContainer.style.display = 'block';
         }
+    }
+
+    function closeResult() {
+        document.getElementById('result-modal').classList.remove('show');
+    }
+
+    // -- Search Functionality -- //
+    function activateSearchMode() {
+        isSearchMode = true;
+        document.getElementById('search-mode-banner').style.display = 'block';
+        switchTab('scanner-tab', 'nav-scan');
+    }
+
+    function executeSearch(eventStr, uid, rollNo) {
+        isSearchMode = false;
+        document.getElementById('search-mode-banner').style.display = 'none';
+        
+        const searchResBox = document.getElementById('search-result-container');
+        const searchDetails = document.getElementById('search-details');
+        
+        let foundHistory = [];
+        // Look through all folders for this UID
+        for(let folder in appLogs) {
+            if(appLogs[folder][uid]) {
+                appLogs[folder][uid].history.forEach(log => {
+                    foundHistory.push({ folder: folder, ...log });
+                });
+            }
+        }
+        
+        if(foundHistory.length === 0) {
+            searchDetails.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:10px;">No scan history found for Roll No: ${rollNo}</p>`;
+        } else {
+            let html = `<div style="margin-bottom:10px; font-weight:bold;">Roll No: ${rollNo}</div>`;
+            foundHistory.forEach(log => {
+                const badgeClass = log.action === 'Entry' ? 'entry-badge' : 'exit-badge';
+                html += `
+                    <div class="log-entry-row">
+                        <span><span class="${badgeClass}">${log.action}</span> <span style="color:#94a3b8; font-size:12px; margin-left:5px;">${log.folder}</span></span>
+                        <span>${log.time}</span>
+                    </div>
+                `;
+            });
+            searchDetails.innerHTML = html;
+        }
+        
+        searchResBox.style.display = 'block';
+        switchTab('logs-tab', 'nav-logs');
+    }
+
+    function clearSearch() {
+        document.getElementById('search-result-container').style.display = 'none';
+    }
+
+    // -- Logs & Word Export -- //
+    function renderLogs() {
+        const container = document.getElementById('folders-container');
+        container.innerHTML = "";
+        
+        const folders = Object.keys(appLogs).sort().reverse();
+        
+        if(folders.length === 0) {
+            container.innerHTML = `<div style="text-align:center; color:#94a3b8; margin-top:40px;">No scan data logged yet.</div>`;
+            return;
+        }
+        
+        folders.forEach(folderName => {
+            const data = appLogs[folderName];
+            const uniqueUsers = Object.keys(data).length;
+            let totalScans = 0;
+            for(let u in data) { totalScans += data[u].history.length; }
+            
+            const card = document.createElement('div');
+            card.className = 'folder-card';
+            card.innerHTML = `
+                <div class="folder-header">
+                    <div>
+                        <div class="folder-title">📁 ${folderName.replace(/-/g, ' ')}</div>
+                        <div class="folder-stats">${uniqueUsers} Users | ${totalScans} Total Scans</div>
+                    </div>
+                </div>
+                <div class="folder-actions">
+                    <button class="btn-sm" style="background: var(--primary);" onclick="exportToWord('${folderName}')">📄 Export to Word</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function exportToWord(folderName) {
+        const data = appLogs[folderName];
+        let html = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head>
+                <meta charset='utf-8'>
+                <title>Export</title>
+                <style>
+                    body { font-family: Arial, sans-serif; }
+                    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    .entry { color: green; font-weight: bold; }
+                    .exit { color: blue; font-weight: bold; }
+                </style>
+            </head>
+            <body>
+                <h2>Log Data: ${folderName.replace(/-/g, ' ')}</h2>
+                <p>Exported on: ${new Date().toLocaleString()}</p>
+                <table>
+                    <tr>
+                        <th>Roll No</th>
+                        <th>Unique ID</th>
+                        <th>Action</th>
+                        <th>Time</th>
+                    </tr>`;
+        
+        for (const uid in data) {
+            const user = data[uid];
+            user.history.forEach(entry => {
+                const actionStyle = entry.action === 'Entry' ? 'entry' : 'exit';
+                html += `
+                    <tr>
+                        <td>${user.rollNo}</td>
+                        <td>${uid}</td>
+                        <td class="${actionStyle}">${entry.action}</td>
+                        <td>${entry.time}</td>
+                    </tr>`;
+            });
+        }
+        
+        html += `</table></body></html>`;
+
+        // Create Blob and trigger download
+        const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${folderName}_Attendance_Logs.doc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 </script>
 </body>
