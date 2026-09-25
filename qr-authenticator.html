@@ -24,17 +24,12 @@
         .btn-primary { background: var(--primary); color: white; }
         
         #main-app { display: none; flex-direction: column; height: 100vh; position: relative; }
-        .tab-content { flex: 1; overflow-y: auto; display: none; position: relative; }
-        .tab-content.active { display: flex; flex-direction: column; }
+        .tab-content { flex: 1; overflow: hidden; display: none; position: relative; flex-direction: column; height: 100%; }
+        .tab-content.active { display: flex; }
         
-        .scanner-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(15, 23, 42, 0.9); position: absolute; width: 100%; z-index: 20; border-bottom: 1px solid #334155;}
+        .scanner-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(15, 23, 42, 0.9); position: absolute; top: 0; width: 100%; z-index: 20; border-bottom: 1px solid #334155;}
         
-        .bottom-nav { display: flex; background: var(--surface); border-top: 1px solid #334155; padding-bottom: env(safe-area-inset-bottom); }
-        .nav-item { flex: 1; padding: 15px 0; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .nav-item.active { color: var(--primary); }
-        .nav-item svg { width: 24px; height: 24px; fill: currentColor; }
-        
-        #video-container { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-top: 60px;}
+        #video-container { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: pointer;}
         video { width: 100%; height: 100%; object-fit: cover; }
         canvas { display: none; }
         
@@ -42,7 +37,7 @@
         
         /* Guide Frame */
         .scan-frame { 
-            width: 260px; height: 260px; 
+            width: 280px; height: 280px; 
             border: 2px solid rgba(255, 255, 255, 0.3); 
             border-radius: 20px; 
             position: absolute; 
@@ -50,7 +45,7 @@
             pointer-events: none;
         }
 
-        /* NEW: SMALL GREEN FOCUS BOX */
+        /* SMALL GREEN FOCUS BOX */
         .focus-box {
             width: 70px; height: 70px;
             border: 2px solid var(--success);
@@ -58,37 +53,23 @@
             background: rgba(16, 185, 129, 0.1);
             position: absolute;
             z-index: 30;
-            pointer-events: auto; /* Allows tapping specifically on this box */
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            pointer-events: auto; /* Allows tapping this box specifically */
+            display: flex; justify-content: center; align-items: center;
             transition: all 0.2s;
         }
 
-        .focus-box::after {
-            content: '+';
-            color: var(--success);
-            font-size: 24px;
-            font-weight: 300;
-            opacity: 0.6;
-        }
-
-        /* Animation class applied when tapping the focus box */
-        .focusing {
-            animation: focusPulse 0.5s ease-out;
-        }
-
+        .focus-box::after { content: '+'; color: var(--success); font-size: 24px; font-weight: 300; opacity: 0.6; }
+        .focusing { animation: focusPulse 0.5s ease-out; }
         @keyframes focusPulse {
             0% { transform: scale(1); background: rgba(16, 185, 129, 0.4); border-color: #fff; }
             50% { transform: scale(0.8); }
             100% { transform: scale(1); background: rgba(16, 185, 129, 0.1); border-color: var(--success); }
         }
         
-        .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 14px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
-        .zoom-instruction { position: absolute; bottom: 9%; font-size: 12px; color: #94a3b8; pointer-events: none; opacity: 0.8;}
+        .tap-instruction { position: absolute; bottom: 12%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 14px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; z-index: 20; }
+        .zoom-instruction { position: absolute; bottom: 6%; font-size: 12px; color: #94a3b8; pointer-events: none; opacity: 0.8; z-index: 20;}
         
         #flash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 10; }
-        #search-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; pointer-events: none; }
         
         #result-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 50; flex-direction: column; justify-content: center; align-items: center; padding: 20px; cursor: pointer; text-align: center; }
         #result-modal.show { display: flex; }
@@ -105,19 +86,18 @@
         .res-error { color: var(--danger); }
         .res-exit { color: var(--exit-color); }
         
-        #logs-tab { padding: 0; background: var(--bg-dark); display: flex; flex-direction: column; height: 100%; }
-        
+        #logs-tab { background: var(--bg-dark); }
         #folder-list-view { padding: 20px; flex: 1; overflow-y: auto; }
         #folder-detail-view { display: none; flex-direction: column; height: 100%; background: var(--bg-dark); flex: 1; overflow: hidden; }
         
-        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
         .folder-card { background: var(--surface); border-radius: 12px; margin-bottom: 15px; overflow: hidden; border: 1px solid #334155; cursor: pointer; transition: 0.2s; }
         .folder-card:active { background: #334155; }
         .folder-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         .folder-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
         .folder-stats { font-size: 12px; color: #94a3b8; }
         
-        .btn-sm { padding: 8px 12px; border-radius: 6px; font-size: 13px; border: none; font-weight: bold; cursor: pointer; color: white; display: inline-block;}
+        .btn-sm { padding: 8px 12px; border-radius: 6px; font-size: 13px; border: none; font-weight: bold; cursor: pointer; color: white; display: inline-flex; align-items: center; justify-content: center;}
         
         #search-result-container { display: none; background: var(--surface); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 2px solid var(--warning); }
         .log-entry-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #334155; font-size: 14px; }
@@ -152,23 +132,20 @@
     </div>
 
     <div id="main-app">
-        <!-- SCANNER TAB -->
+        <!-- SCANNER TAB ONLY (Bottom Nav Removed) -->
         <div id="scanner-tab" class="tab-content active">
             <div class="scanner-header">
                 <div style="font-weight: bold; font-size: 18px;">Scanner Active</div>
-                <div><button class="btn-sm" style="background: var(--surface); color: white;" onclick="switchTab('logs-tab', 'nav-logs')">📁 View Logs</button></div>
+                <button class="btn-sm" style="background: var(--surface); color: white;" onclick="switchTab('logs-tab')">📁 View Logs</button>
             </div>
-
-            <div id="search-mode-banner">SEARCH MODE ACTIVE<br><span style="font-size:12px; font-weight:normal;">Tap anywhere to scan history.</span></div>
             
-            <!-- Video Container catches "tap anywhere to scan" -->
             <div id="video-container" onclick="captureAndScan()">
                 <video id="qr-video" playsinline></video>
                 <canvas id="qr-canvas"></canvas>
                 
                 <div class="scan-overlay-ui">
                     <div class="scan-frame"></div>
-                    <!-- NEW: Focus box catches specific center taps and prevents scanning -->
+                    <!-- FOCUS BOX: Tapping this fixes focus instead of scanning -->
                     <div class="focus-box" id="focus-btn" onclick="triggerFocus(event)"></div>
                 </div>
                 
@@ -190,8 +167,9 @@
             <!-- MAIN FOLDER LIST -->
             <div id="folder-list-view">
                 <div class="log-header">
+                    <button class="btn-sm" style="background: var(--surface); border: 1px solid #334155; color: white;" onclick="switchTab('scanner-tab')">❮ Scanner</button>
                     <h2>Data Logs</h2>
-                    <button class="btn-sm" style="background: var(--warning); color: #000;" onclick="activateSearchMode()">🔍 Search QR</button>
+                    <button class="btn-sm" style="background: var(--warning); color: #000;" onclick="activateSearchMode()">🔍 Search</button>
                 </div>
                 
                 <div id="search-result-container">
@@ -240,18 +218,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- BOTTOM NAV -->
-        <div class="bottom-nav">
-            <div class="nav-item active" id="nav-scan" onclick="switchTab('scanner-tab', 'nav-scan')">
-                <svg viewBox="0 0 24 24"><path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z"/></svg>
-                Scanner
-            </div>
-            <div class="nav-item" id="nav-logs" onclick="switchTab('logs-tab', 'nav-logs')">
-                <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
-                Logs
-            </div>
-        </div>
     </div>
 
 <script>
@@ -288,17 +254,14 @@
     videoContainer.addEventListener('touchmove', (e) => {
         if (e.touches.length === 2 && videoTrack) {
             e.preventDefault(); 
-            
             const currentDist = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
                 e.touches[0].pageY - e.touches[1].pageY
             );
-            
             if (initialPinchDist > 0) {
                 const scale = currentDist / initialPinchDist;
                 let newZoom = startZoom * scale;
                 newZoom = Math.max(minZoom, Math.min(newZoom, maxZoom));
-                
                 if (newZoom !== currentZoom) {
                     currentZoom = newZoom;
                     try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); } 
@@ -310,26 +273,20 @@
 
     // --- MANUAL FOCUS LOGIC ---
     async function triggerFocus(e) {
-        e.stopPropagation(); // Prevents the screen tap from taking a scan picture
-        
+        e.stopPropagation(); // Stop scan action
         const focusBtn = document.getElementById('focus-btn');
         focusBtn.classList.remove('focusing');
-        void focusBtn.offsetWidth; // Trigger reflow to restart animation
+        void focusBtn.offsetWidth; 
         focusBtn.classList.add('focusing');
         
         if (videoTrack) {
             try {
-                // Attempt to force the hardware to refocus
                 await videoTrack.applyConstraints({ advanced: [{ focusMode: "single-shot" }] });
-                
-                // Return to continuous auto-focus mode after a short delay so it doesn't stay permanently locked
                 setTimeout(async () => {
                     try { await videoTrack.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); }
                     catch(err){}
                 }, 1500);
-            } catch(err) {
-                console.log("Hardware manual focus API not fully supported on this device browser", err);
-            }
+            } catch(err) { console.log("Manual focus API not fully supported", err); }
         }
     }
 
@@ -361,14 +318,11 @@
         renderFolders();
     }
 
-    function switchTab(tabId, navId) {
+    function switchTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
-        document.getElementById(navId).classList.add('active');
         
         if(tabId === 'scanner-tab' && !videoStream) startCamera();
-        
         if(tabId === 'logs-tab') {
             closeFolderView(); 
             renderFolders();
@@ -378,14 +332,13 @@
     function startCamera() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Camera not supported or blocked."); return; }
         
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } })
         .then(function(stream) {
             videoStream = stream; 
             video.srcObject = stream; 
             video.setAttribute("playsinline", true); 
             video.play();
             
-            // Setup Zoom Capabilities
             videoTrack = stream.getVideoTracks()[0];
             setTimeout(() => {
                 if(videoTrack && videoTrack.getCapabilities) {
@@ -439,7 +392,11 @@
         const isValid = await verifySignature(activeKeyHex, baseMessage, signature);
         if(!isValid) { showResultModal("✕ UNAUTHORIZED", "res-error", "Signature mismatch.<br>Fake QR or wrong key.", null); return; }
 
-        if(isSearchMode) { executeSearch(eventStr, uid, rollNo, name); return; }
+        if(isSearchMode) { 
+            executeSearch(eventStr, uid, rollNo, name); 
+            isSearchMode = false; // Turn off search mode after finding
+            return; 
+        }
 
         const dateStr = new Date().toISOString().split('T')[0];
         const folderName = `${eventStr.replace(/\s+/g, '_')}-${dateStr}`;
@@ -481,15 +438,16 @@
         else { detailsContainer.innerHTML = `<div style="text-align:center; color:#e2e8f0; font-size:15px;">${errorMsg}</div>`; }
         modal.className = 'show';
     }
+    
     function closeResult() { document.getElementById('result-modal').classList.remove('show'); }
 
     // --- Search Features ---
     function activateSearchMode() {
-        isSearchMode = true; document.getElementById('search-mode-banner').style.display = 'block';
-        switchTab('scanner-tab', 'nav-scan');
+        isSearchMode = true; 
+        switchTab('scanner-tab');
     }
+    
     function executeSearch(eventStr, uid, rollNo, name) {
-        isSearchMode = false; document.getElementById('search-mode-banner').style.display = 'none';
         let foundHistory = [];
         for(let folder in appLogs) {
             if(appLogs[folder][uid]) { appLogs[folder][uid].history.forEach(log => { foundHistory.push({ folder: folder, ...log }); }); }
@@ -505,7 +463,7 @@
             searchDetails.innerHTML = html;
         }
         document.getElementById('search-result-container').style.display = 'block';
-        switchTab('logs-tab', 'nav-logs');
+        switchTab('logs-tab');
     }
     function clearSearch() { document.getElementById('search-result-container').style.display = 'none'; }
 
