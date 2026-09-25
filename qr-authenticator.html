@@ -12,7 +12,7 @@
     <style>
         :root { --primary: #2563eb; --bg-dark: #0f172a; --surface: #1e293b; --text-light: #f8fafc; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --exit-color: #3b82f6; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
-        body { background-color: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { background-color: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; height: 100vh; overflow: hidden; touch-action: none; }
         
         #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; z-index: 100; background: var(--bg-dark); }
         .setup-card { background: var(--surface); padding: 30px 20px; border-radius: 16px; width: 100%; max-width: 400px; }
@@ -39,8 +39,19 @@
         canvas { display: none; }
         
         .scan-overlay-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
-        .scan-frame { width: 250px; height: 250px; border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 20px; position: relative; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6); }
+        
+        /* GREEN FOCUS SQUARE */
+        .scan-frame { 
+            width: 260px; 
+            height: 260px; 
+            border: 3px solid var(--success); 
+            border-radius: 20px; 
+            position: relative; 
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65), 0 0 20px rgba(16, 185, 129, 0.4) inset, 0 0 20px rgba(16, 185, 129, 0.4); 
+        }
+        
         .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
+        .zoom-instruction { position: absolute; bottom: 9%; font-size: 12px; color: #94a3b8; pointer-events: none; opacity: 0.8;}
         
         #flash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 10; }
         #search-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; }
@@ -62,7 +73,6 @@
         
         #logs-tab { padding: 0; background: var(--bg-dark); display: flex; flex-direction: column; height: 100%; }
         
-        /* Log Views Containers */
         #folder-list-view { padding: 20px; flex: 1; overflow-y: auto; }
         #folder-detail-view { display: none; flex-direction: column; height: 100%; background: var(--bg-dark); flex: 1; overflow: hidden; }
         
@@ -80,7 +90,6 @@
         .entry-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(16,185,129,0.2); color: var(--success); }
         .exit-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(59,130,246,0.2); color: var(--exit-color); }
 
-        /* Folder Detail Specific UI - THIS IS THE NEW PAGE YOU ASKED FOR! */
         .detail-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--surface); border-bottom: 1px solid #334155; }
         .stat-boxes { display: flex; gap: 10px; padding: 15px 20px; background: var(--bg-dark); }
         .stat-box { flex: 1; background: var(--surface); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #334155; }
@@ -122,7 +131,8 @@
                 <video id="qr-video" playsinline></video>
                 <canvas id="qr-canvas"></canvas>
                 <div class="scan-overlay-ui"><div class="scan-frame"></div></div>
-                <div class="tap-instruction">👆 Tap anywhere on screen to scan</div>
+                <div class="tap-instruction">👆 Tap anywhere to scan</div>
+                <div class="zoom-instruction">Pinch to Zoom In/Out</div>
                 <div id="flash-effect"></div>
             </div>
             
@@ -136,7 +146,6 @@
 
         <!-- LOGS TAB -->
         <div id="logs-tab" class="tab-content">
-            
             <!-- MAIN FOLDER LIST -->
             <div id="folder-list-view">
                 <div class="log-header">
@@ -155,12 +164,11 @@
                 <div id="folders-container"></div>
             </div>
 
-            <!-- FOLDER DETAILED VIEW (This slides in when you click a folder!) -->
+            <!-- FOLDER DETAILED VIEW -->
             <div id="folder-detail-view">
                 <div class="detail-top-bar">
                     <button class="btn-sm" style="background: transparent; color: var(--primary); padding: 5px 0; font-size: 16px;" onclick="closeFolderView()">❮ Back</button>
                     <h3 id="detail-folder-title" style="font-size: 16px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px;">Event</h3>
-                    <!-- THIS IS THE PDF BUTTON -->
                     <button class="btn-sm" style="background: var(--primary);" onclick="exportToPDF()">PDF ⭳</button>
                 </div>
                 
@@ -175,7 +183,6 @@
                     </div>
                 </div>
 
-                <!-- THIS IS THE 3-COLUMN LIST -->
                 <div class="table-container">
                     <table class="log-table">
                         <thead>
@@ -209,14 +216,58 @@
 <script>
     let activeKeyHex = "";
     let videoStream = null;
+    let videoTrack = null; // Stored for Zoom control
     let isSearchMode = false;
     let appLogs = JSON.parse(localStorage.getItem('event_logs_db') || '{}');
     let currentOpenFolder = ""; 
 
+    // Zoom State Variables
+    let currentZoom = 1;
+    let minZoom = 1;
+    let maxZoom = 1;
+    let startZoom = 1;
+    let initialPinchDist = 0;
+
     const video = document.getElementById("qr-video");
     const canvasElement = document.getElementById("qr-canvas");
     const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
+    const videoContainer = document.getElementById('video-container');
     
+    // --- PINCH TO ZOOM LOGIC ---
+    videoContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            initialPinchDist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            startZoom = currentZoom;
+        }
+    });
+
+    videoContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && videoTrack) {
+            e.preventDefault(); // Prevents zooming the whole webpage instead of camera
+            
+            const currentDist = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            
+            if (initialPinchDist > 0) {
+                const scale = currentDist / initialPinchDist;
+                let newZoom = startZoom * scale;
+                newZoom = Math.max(minZoom, Math.min(newZoom, maxZoom));
+                
+                if (newZoom !== currentZoom) {
+                    currentZoom = newZoom;
+                    try {
+                        videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] });
+                    } catch(err) { console.log("Zoom not supported", err); }
+                }
+            }
+        }
+    }, { passive: false });
+
     async function importKey(hexKey) {
         const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
         return await window.crypto.subtle.importKey("raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -261,9 +312,26 @@
 
     function startCamera() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Camera not supported or blocked."); return; }
+        
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(function(stream) {
-            videoStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
+            videoStream = stream; 
+            video.srcObject = stream; 
+            video.setAttribute("playsinline", true); 
+            video.play();
+            
+            // Setup Zoom Capabilities
+            videoTrack = stream.getVideoTracks()[0];
+            setTimeout(() => {
+                if(videoTrack && videoTrack.getCapabilities) {
+                    const capabilities = videoTrack.getCapabilities();
+                    if(capabilities.zoom) {
+                        minZoom = capabilities.zoom.min || 1;
+                        maxZoom = capabilities.zoom.max || 5;
+                        currentZoom = videoTrack.getSettings().zoom || minZoom;
+                    }
+                }
+            }, 500);
         })
         .catch(function(err) {
             navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
@@ -285,7 +353,7 @@
         const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
         
         if (code) { await processQRCode(code.data); } 
-        else { showResultModal("✕ NOT DETECTED", "res-error", "No QR Code found in frame.<br><br>Make sure the QR is clear and well-lit.", null); }
+        else { showResultModal("✕ NOT DETECTED", "res-error", "No QR Code found in frame.<br><br>Ensure QR is clear and well-lit.", null); }
     }
 
     async function processQRCode(data) {
@@ -408,7 +476,6 @@
         currentOpenFolder = folderName;
         const data = appLogs[folderName];
         
-        // Calculate Stats
         let uniqueAttended = Object.keys(data).length;
         let totalEntries = 0;
         for(let uid in data) {
