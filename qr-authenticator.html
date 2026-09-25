@@ -40,21 +40,55 @@
         
         .scan-overlay-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
         
-        /* GREEN FOCUS SQUARE */
+        /* Guide Frame */
         .scan-frame { 
-            width: 260px; 
-            height: 260px; 
-            border: 3px solid var(--success); 
+            width: 260px; height: 260px; 
+            border: 2px solid rgba(255, 255, 255, 0.3); 
             border-radius: 20px; 
-            position: relative; 
-            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65), 0 0 20px rgba(16, 185, 129, 0.4) inset, 0 0 20px rgba(16, 185, 129, 0.4); 
+            position: absolute; 
+            box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65); 
+            pointer-events: none;
+        }
+
+        /* NEW: SMALL GREEN FOCUS BOX */
+        .focus-box {
+            width: 70px; height: 70px;
+            border: 2px solid var(--success);
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            position: absolute;
+            z-index: 30;
+            pointer-events: auto; /* Allows tapping specifically on this box */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .focus-box::after {
+            content: '+';
+            color: var(--success);
+            font-size: 24px;
+            font-weight: 300;
+            opacity: 0.6;
+        }
+
+        /* Animation class applied when tapping the focus box */
+        .focusing {
+            animation: focusPulse 0.5s ease-out;
+        }
+
+        @keyframes focusPulse {
+            0% { transform: scale(1); background: rgba(16, 185, 129, 0.4); border-color: #fff; }
+            50% { transform: scale(0.8); }
+            100% { transform: scale(1); background: rgba(16, 185, 129, 0.1); border-color: var(--success); }
         }
         
-        .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
+        .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 14px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
         .zoom-instruction { position: absolute; bottom: 9%; font-size: 12px; color: #94a3b8; pointer-events: none; opacity: 0.8;}
         
         #flash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 10; }
-        #search-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; }
+        #search-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; pointer-events: none; }
         
         #result-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 50; flex-direction: column; justify-content: center; align-items: center; padding: 20px; cursor: pointer; text-align: center; }
         #result-modal.show { display: flex; }
@@ -125,13 +159,20 @@
                 <div><button class="btn-sm" style="background: var(--surface); color: white;" onclick="switchTab('logs-tab', 'nav-logs')">📁 View Logs</button></div>
             </div>
 
-            <div id="search-mode-banner">SEARCH MODE ACTIVE<br><span style="font-size:12px; font-weight:normal;">Tap QR to find history.</span></div>
+            <div id="search-mode-banner">SEARCH MODE ACTIVE<br><span style="font-size:12px; font-weight:normal;">Tap anywhere to scan history.</span></div>
             
+            <!-- Video Container catches "tap anywhere to scan" -->
             <div id="video-container" onclick="captureAndScan()">
                 <video id="qr-video" playsinline></video>
                 <canvas id="qr-canvas"></canvas>
-                <div class="scan-overlay-ui"><div class="scan-frame"></div></div>
-                <div class="tap-instruction">👆 Tap anywhere to scan</div>
+                
+                <div class="scan-overlay-ui">
+                    <div class="scan-frame"></div>
+                    <!-- NEW: Focus box catches specific center taps and prevents scanning -->
+                    <div class="focus-box" id="focus-btn" onclick="triggerFocus(event)"></div>
+                </div>
+                
+                <div class="tap-instruction">👆 Tap center box to focus. Tap anywhere else to scan.</div>
                 <div class="zoom-instruction">Pinch to Zoom In/Out</div>
                 <div id="flash-effect"></div>
             </div>
@@ -216,12 +257,12 @@
 <script>
     let activeKeyHex = "";
     let videoStream = null;
-    let videoTrack = null; // Stored for Zoom control
+    let videoTrack = null; 
     let isSearchMode = false;
     let appLogs = JSON.parse(localStorage.getItem('event_logs_db') || '{}');
     let currentOpenFolder = ""; 
 
-    // Zoom State Variables
+    // Zoom Variables
     let currentZoom = 1;
     let minZoom = 1;
     let maxZoom = 1;
@@ -246,7 +287,7 @@
 
     videoContainer.addEventListener('touchmove', (e) => {
         if (e.touches.length === 2 && videoTrack) {
-            e.preventDefault(); // Prevents zooming the whole webpage instead of camera
+            e.preventDefault(); 
             
             const currentDist = Math.hypot(
                 e.touches[0].pageX - e.touches[1].pageX,
@@ -260,13 +301,37 @@
                 
                 if (newZoom !== currentZoom) {
                     currentZoom = newZoom;
-                    try {
-                        videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] });
-                    } catch(err) { console.log("Zoom not supported", err); }
+                    try { videoTrack.applyConstraints({ advanced: [{ zoom: currentZoom }] }); } 
+                    catch(err) { console.log("Zoom not supported", err); }
                 }
             }
         }
     }, { passive: false });
+
+    // --- MANUAL FOCUS LOGIC ---
+    async function triggerFocus(e) {
+        e.stopPropagation(); // Prevents the screen tap from taking a scan picture
+        
+        const focusBtn = document.getElementById('focus-btn');
+        focusBtn.classList.remove('focusing');
+        void focusBtn.offsetWidth; // Trigger reflow to restart animation
+        focusBtn.classList.add('focusing');
+        
+        if (videoTrack) {
+            try {
+                // Attempt to force the hardware to refocus
+                await videoTrack.applyConstraints({ advanced: [{ focusMode: "single-shot" }] });
+                
+                // Return to continuous auto-focus mode after a short delay so it doesn't stay permanently locked
+                setTimeout(async () => {
+                    try { await videoTrack.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); }
+                    catch(err){}
+                }, 1500);
+            } catch(err) {
+                console.log("Hardware manual focus API not fully supported on this device browser", err);
+            }
+        }
+    }
 
     async function importKey(hexKey) {
         const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
