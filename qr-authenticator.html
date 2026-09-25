@@ -4,24 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Event QR Authenticator App</title>
-    <!-- jsQR Library -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     
     <style>
-        :root {
-            --primary: #2563eb;
-            --bg-dark: #0f172a;
-            --surface: #1e293b;
-            --text-light: #f8fafc;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --exit-color: #3b82f6;
-        }
+        :root { --primary: #2563eb; --bg-dark: #0f172a; --surface: #1e293b; --text-light: #f8fafc; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --exit-color: #3b82f6; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
         body { background-color: var(--bg-dark); color: var(--text-light); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Setup Screen */
         #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; z-index: 100; background: var(--bg-dark); }
         .setup-card { background: var(--surface); padding: 30px 20px; border-radius: 16px; width: 100%; max-width: 400px; }
         .form-group { margin-bottom: 20px; }
@@ -30,21 +19,20 @@
         input:focus { border-color: var(--primary); }
         .btn { padding: 14px 20px; width: 100%; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: #1d4ed8; }
         
-        /* Main App Layout */
         #main-app { display: none; flex-direction: column; height: 100vh; position: relative; }
         .tab-content { flex: 1; overflow-y: auto; display: none; position: relative; }
         .tab-content.active { display: flex; flex-direction: column; }
         
-        /* Bottom Navigation */
+        /* Scanner Header - Added Logs Button Here */
+        .scanner-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(15, 23, 42, 0.9); position: absolute; width: 100%; z-index: 20; border-bottom: 1px solid #334155;}
+        
         .bottom-nav { display: flex; background: var(--surface); border-top: 1px solid #334155; padding-bottom: env(safe-area-inset-bottom); }
         .nav-item { flex: 1; padding: 15px 0; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .nav-item.active { color: var(--primary); }
         .nav-item svg { width: 24px; height: 24px; fill: currentColor; }
         
-        /* Scanner View */
-        #video-container { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        #video-container { flex: 1; position: relative; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: pointer; margin-top: 60px;}
         video { width: 100%; height: 100%; object-fit: cover; }
         canvas { display: none; }
         
@@ -52,17 +40,15 @@
         .scan-frame { width: 250px; height: 250px; border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 20px; position: relative; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6); }
         .tap-instruction { position: absolute; bottom: 15%; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; font-weight: 500; font-size: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.2); pointer-events: none; }
         
-        /* Camera Flash Effect */
         #flash-effect { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s; z-index: 10; }
         
-        /* Search Mode Banner */
-        #search-mode-banner { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; }
+        #search-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: var(--warning); color: #000; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 5; display: none; text-align: center; width: 90%; }
         
-        /* Full Screen Result Modal */
+        /* Result Screen triggered by Tapping Anywhere */
         #result-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 50; flex-direction: column; justify-content: center; align-items: center; padding: 20px; cursor: pointer; text-align: center; }
         #result-modal.show { display: flex; }
         .result-icon { font-size: 70px; margin-bottom: 10px; }
-        .result-title { font-size: 28px; font-weight: bold; margin-bottom: 20px; }
+        .result-title { font-size: 26px; font-weight: bold; margin-bottom: 20px; }
         .result-details { background: var(--surface); padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; margin-bottom: 30px; text-align: left; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; }
         .detail-row:last-child { border-bottom: none; }
@@ -70,12 +56,10 @@
         .detail-value { font-weight: 600; font-size: 15px; }
         .tap-to-close { color: #94a3b8; font-size: 14px; animation: pulse 1.5s infinite; }
         
-        /* Result Colors */
         .res-success { color: var(--success); }
         .res-error { color: var(--danger); }
         .res-exit { color: var(--exit-color); }
         
-        /* Logs View */
         #logs-tab { padding: 20px; background: var(--bg-dark); }
         .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .folder-card { background: var(--surface); border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
@@ -83,21 +67,19 @@
         .folder-title { font-weight: bold; font-size: 16px; }
         .folder-stats { font-size: 12px; color: #94a3b8; }
         .folder-actions { padding: 10px 15px; background: rgba(0,0,0,0.2); display: flex; justify-content: flex-end; gap: 10px; }
-        .btn-sm { padding: 8px 12px; border-radius: 6px; font-size: 12px; border: none; font-weight: bold; cursor: pointer; color: white; }
         
-        /* Search Result UI */
+        .btn-sm { padding: 8px 12px; border-radius: 6px; font-size: 13px; border: none; font-weight: bold; cursor: pointer; color: white; display: inline-block;}
+        
         #search-result-container { display: none; background: var(--surface); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 2px solid var(--warning); }
         .log-entry-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #334155; font-size: 14px; }
         .entry-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(16,185,129,0.2); color: var(--success); }
         .exit-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: rgba(59,130,246,0.2); color: var(--exit-color); }
         
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        .d-none { display: none !important; }
     </style>
 </head>
 <body>
 
-    <!-- SETUP SCREEN -->
     <div id="setup-screen">
         <div class="setup-card">
             <h2 style="margin-bottom: 20px; text-align: center;">Authenticator Login</h2>
@@ -109,11 +91,20 @@
         </div>
     </div>
 
-    <!-- MAIN APP -->
     <div id="main-app">
-        <!-- SCANNER TAB -->
         <div id="scanner-tab" class="tab-content active">
+            
+            <!-- Clear Logs Button in Header -->
+            <div class="scanner-header">
+                <div style="font-weight: bold; font-size: 18px;">Scanner Active</div>
+                <div>
+                    <button class="btn-sm" style="background: var(--surface); color: white;" onclick="switchTab('logs-tab', 'nav-logs')">📁 View Logs</button>
+                </div>
+            </div>
+
             <div id="search-mode-banner">SEARCH MODE ACTIVE<br><span style="font-size:12px; font-weight:normal;">Tap QR to find history.</span></div>
+            
+            <!-- Tap to Scan mechanism -->
             <div id="video-container" onclick="captureAndScan()">
                 <video id="qr-video" playsinline></video>
                 <canvas id="qr-canvas"></canvas>
@@ -124,7 +115,7 @@
                 <div id="flash-effect"></div>
             </div>
             
-            <!-- RESULT OVERLAY (Dismissed by tapping anywhere) -->
+            <!-- Result Overlay (Tap anywhere to close) -->
             <div id="result-modal" onclick="closeResult()">
                 <div class="result-icon" id="res-icon">✓</div>
                 <div class="result-title" id="res-title">VERIFIED</div>
@@ -133,7 +124,6 @@
             </div>
         </div>
 
-        <!-- LOGS TAB -->
         <div id="logs-tab" class="tab-content">
             <div class="log-header">
                 <h2>Data Logs</h2>
@@ -148,12 +138,9 @@
                 <div id="search-details"></div>
             </div>
 
-            <div id="folders-container">
-                <!-- Folders injected here -->
-            </div>
+            <div id="folders-container"></div>
         </div>
 
-        <!-- BOTTOM NAVIGATION -->
         <div class="bottom-nav">
             <div class="nav-item active" id="nav-scan" onclick="switchTab('scanner-tab', 'nav-scan')">
                 <svg viewBox="0 0 24 24"><path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3.2-5c0 1.77 1.43 3.2 3.2 3.2s3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2z"/></svg>
@@ -170,16 +157,12 @@
     let activeKeyHex = "";
     let videoStream = null;
     let isSearchMode = false;
-    
-    // Application Data structure for Logs
     let appLogs = JSON.parse(localStorage.getItem('event_logs_db') || '{}');
 
-    // DOM Elements
     const video = document.getElementById("qr-video");
     const canvasElement = document.getElementById("qr-canvas");
     const canvas = canvasElement.getContext("2d", { willReadFrequently: true });
     
-    // -- Crypto Utils -- //
     async function importKey(hexKey) {
         const rawKey = new Uint8Array(hexKey.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)));
         return await window.crypto.subtle.importKey("raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -193,24 +176,17 @@
             const calculatedSignature = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
             if (calculatedSignature.length !== providedSignatureHex.length) return false;
             let mismatch = 0;
-            for (let i = 0; i < calculatedSignature.length; i++) {
-                mismatch |= (calculatedSignature.charCodeAt(i) ^ providedSignatureHex.charCodeAt(i));
-            }
+            for (let i = 0; i < calculatedSignature.length; i++) { mismatch |= (calculatedSignature.charCodeAt(i) ^ providedSignatureHex.charCodeAt(i)); }
             return mismatch === 0;
         } catch (e) { return false; }
     }
 
-    // -- App Init & Navigation -- //
     function initApp() {
         const key = document.getElementById('auth-key').value.trim();
-        if(key.length !== 64) {
-            alert("Invalid key. Please enter the 64-character hex key.");
-            return;
-        }
+        if(key.length !== 64) { alert("Invalid key. Please enter the 64-character hex key."); return; }
         activeKeyHex = key;
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('main-app').style.display = 'flex';
-        
         startCamera();
         renderLogs();
     }
@@ -220,84 +196,73 @@
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         document.getElementById(navId).classList.add('active');
-        
         if(tabId === 'scanner-tab' && !videoStream) startCamera();
         if(tabId === 'logs-tab') renderLogs();
     }
 
     function startCamera() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert("Camera not supported or blocked by browser settings.");
-            return;
-        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert("Camera not supported or blocked."); return; }
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(function(stream) {
-            videoStream = stream;
-            video.srcObject = stream;
-            video.setAttribute("playsinline", true);
-            video.play();
+            videoStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
         })
         .catch(function(err) {
             navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
-                videoStream = stream;
-                video.srcObject = stream;
-                video.setAttribute("playsinline", true);
-                video.play();
+                videoStream = stream; video.srcObject = stream; video.setAttribute("playsinline", true); video.play();
             }).catch(e => alert("Camera permission denied."));
         });
     }
 
-    // -- Tap to Scan Logic -- //
     async function captureAndScan() {
         if(video.readyState !== video.HAVE_ENOUGH_DATA) return;
         
-        // Flash Effect
         const flash = document.getElementById('flash-effect');
-        flash.style.opacity = '1';
-        setTimeout(() => flash.style.opacity = '0', 100);
+        flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100);
 
-        // Process Frame
         canvasElement.height = video.videoHeight;
         canvasElement.width = video.videoWidth;
         canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
         const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
         
-        if (code) {
-            await processQRCode(code.data);
-        } else {
-            showResultModal("✕ NOT DETECTED", "res-error", "No QR Code found in frame.<br><br>Make sure the QR is clear and well-lit.", null);
-        }
+        if (code) { await processQRCode(code.data); } 
+        else { showResultModal("✕ NOT DETECTED", "res-error", "No QR Code found in frame.<br><br>Make sure the QR is clear and well-lit.", null); }
     }
 
     async function processQRCode(data) {
         const parts = data.split('|');
-        if(parts.length !== 5) {
-            showResultModal("✕ UNAUTHORIZED", "res-error", "Invalid QR format.", null);
+        let version, eventStr, rollNo, name, stay, uid, signature, baseMessage;
+
+        // SMART COMPATIBILITY: Handles both Old (5-part) and New (7-part) QRs
+        if (parts.length === 5) {
+            [version, eventStr, rollNo, uid, signature] = parts;
+            name = "N/A (Old QR)";
+            stay = "N/A";
+            baseMessage = `${version}|${eventStr}|${rollNo}|${uid}`;
+        } else if (parts.length === 7) {
+            [version, eventStr, rollNo, name, stay, uid, signature] = parts;
+            baseMessage = `${version}|${eventStr}|${rollNo}|${name}|${stay}|${uid}`;
+        } else {
+            showResultModal("✕ UNAUTHORIZED", "res-error", "Invalid or Tampered QR format.", null);
             return;
         }
 
-        const [version, eventStr, rollNo, uid, signature] = parts;
-        const baseMessage = `${version}|${eventStr}|${rollNo}|${uid}`;
         const isValid = await verifySignature(activeKeyHex, baseMessage, signature);
-        
-        if(!isValid) {
-            showResultModal("✕ UNAUTHORIZED", "res-error", "Signature mismatch.<br>Fake QR or wrong key.", null);
-            return;
-        }
+        if(!isValid) { showResultModal("✕ UNAUTHORIZED", "res-error", "Signature mismatch.<br>Fake QR or wrong key.", null); return; }
 
-        if(isSearchMode) {
-            executeSearch(eventStr, uid, rollNo);
-            return;
-        }
+        if(isSearchMode) { executeSearch(eventStr, uid, rollNo, name); return; }
 
-        // --- Logging Logic (Entry/Exit) --- //
         const dateStr = new Date().toISOString().split('T')[0];
         const folderName = `${eventStr.replace(/\s+/g, '_')}-${dateStr}`;
         const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
         
         if(!appLogs[folderName]) appLogs[folderName] = {};
-        if(!appLogs[folderName][uid]) appLogs[folderName][uid] = { rollNo: rollNo, history: [] };
+        if(!appLogs[folderName][uid]) appLogs[folderName][uid] = { rollNo: rollNo, name: name, stay: stay, history: [] };
+        
+        if(name !== "N/A (Old QR)") {
+            appLogs[folderName][uid].name = name;
+            appLogs[folderName][uid].stay = stay;
+        }
         
         const history = appLogs[folderName][uid].history;
         const lastAction = history.length > 0 ? history[history.length - 1].action : 'Exit';
@@ -306,105 +271,75 @@
         history.push({ action: newAction, time: timeNow });
         localStorage.setItem('event_logs_db', JSON.stringify(appLogs));
         
-        // Prepare Success UI based on action
         const title = newAction === 'Entry' ? "✓ ENTRY LOGGED" : "✓ EXIT LOGGED";
         const colorClass = newAction === 'Entry' ? "res-success" : "res-exit";
         
         const details = `
+            <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${name}</span></div>
             <div class="detail-row"><span class="detail-label">Roll No</span><span class="detail-value">${rollNo}</span></div>
-            <div class="detail-row"><span class="detail-label">Action</span><span class="detail-value" style="color: var(--${newAction==='Entry'?'success':'exit-color'});">${newAction}</span></div>
+            <div class="detail-row"><span class="detail-label">Stay</span><span class="detail-value">${stay}</span></div>
+            <div class="detail-row"><span class="detail-label">Event</span><span class="detail-value">${eventStr}</span></div>
+            <div class="detail-row" style="margin-top: 10px; border-top: 2px solid #334155; padding-top: 15px;"><span class="detail-label">Action</span><span class="detail-value" style="color: var(--${newAction==='Entry'?'success':'exit-color'}); font-size: 18px;">${newAction}</span></div>
             <div class="detail-row"><span class="detail-label">Time</span><span class="detail-value">${timeNow}</span></div>
         `;
-        
         showResultModal(title, colorClass, "", details);
     }
 
-    // -- Result Modal Handling -- //
     function showResultModal(title, colorClass, errorMsg, detailsHTML) {
         const modal = document.getElementById('result-modal');
-        const icon = document.getElementById('res-icon');
-        const titleEl = document.getElementById('res-title');
+        document.getElementById('res-title').className = `result-title ${colorClass}`;
+        document.getElementById('res-icon').className = `result-icon ${colorClass}`;
+        document.getElementById('res-title').innerHTML = title;
+        document.getElementById('res-icon').innerHTML = title.includes('✕') ? '✕' : (title.includes('ENTRY') ? '⇲' : '⇱');
+        
         const detailsContainer = document.getElementById('res-details');
-        
-        modal.className = 'show'; // removes other classes, adds show
-        titleEl.className = `result-title ${colorClass}`;
-        icon.className = `result-icon ${colorClass}`;
-        
-        titleEl.innerHTML = title;
-        icon.innerHTML = title.includes('✕') ? '✕' : (title.includes('ENTRY') ? '⇲' : '⇱');
-        
-        if (detailsHTML) {
-            detailsContainer.innerHTML = detailsHTML;
-            detailsContainer.style.display = 'block';
-        } else {
-            detailsContainer.innerHTML = `<div style="text-align:center; color:#e2e8f0; font-size:15px;">${errorMsg}</div>`;
-            detailsContainer.style.display = 'block';
-        }
+        if (detailsHTML) { detailsContainer.innerHTML = detailsHTML; } 
+        else { detailsContainer.innerHTML = `<div style="text-align:center; color:#e2e8f0; font-size:15px;">${errorMsg}</div>`; }
+        modal.className = 'show';
     }
 
-    function closeResult() {
-        document.getElementById('result-modal').classList.remove('show');
-    }
+    function closeResult() { document.getElementById('result-modal').classList.remove('show'); }
 
-    // -- Search Functionality -- //
     function activateSearchMode() {
         isSearchMode = true;
         document.getElementById('search-mode-banner').style.display = 'block';
         switchTab('scanner-tab', 'nav-scan');
     }
 
-    function executeSearch(eventStr, uid, rollNo) {
+    function executeSearch(eventStr, uid, rollNo, name) {
         isSearchMode = false;
         document.getElementById('search-mode-banner').style.display = 'none';
         
-        const searchResBox = document.getElementById('search-result-container');
-        const searchDetails = document.getElementById('search-details');
-        
         let foundHistory = [];
-        // Look through all folders for this UID
         for(let folder in appLogs) {
             if(appLogs[folder][uid]) {
-                appLogs[folder][uid].history.forEach(log => {
-                    foundHistory.push({ folder: folder, ...log });
-                });
+                appLogs[folder][uid].history.forEach(log => { foundHistory.push({ folder: folder, ...log }); });
             }
         }
         
+        const searchDetails = document.getElementById('search-details');
         if(foundHistory.length === 0) {
-            searchDetails.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:10px;">No scan history found for Roll No: ${rollNo}</p>`;
+            searchDetails.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:10px;">No scan history found for ${name}</p>`;
         } else {
-            let html = `<div style="margin-bottom:10px; font-weight:bold;">Roll No: ${rollNo}</div>`;
+            let html = `<div style="margin-bottom:10px; font-weight:bold;">${name} (Roll: ${rollNo})</div>`;
             foundHistory.forEach(log => {
                 const badgeClass = log.action === 'Entry' ? 'entry-badge' : 'exit-badge';
-                html += `
-                    <div class="log-entry-row">
-                        <span><span class="${badgeClass}">${log.action}</span> <span style="color:#94a3b8; font-size:12px; margin-left:5px;">${log.folder}</span></span>
-                        <span>${log.time}</span>
-                    </div>
-                `;
+                html += `<div class="log-entry-row"><span><span class="${badgeClass}">${log.action}</span> <span style="color:#94a3b8; font-size:12px; margin-left:5px;">${log.folder}</span></span><span>${log.time}</span></div>`;
             });
             searchDetails.innerHTML = html;
         }
         
-        searchResBox.style.display = 'block';
+        document.getElementById('search-result-container').style.display = 'block';
         switchTab('logs-tab', 'nav-logs');
     }
 
-    function clearSearch() {
-        document.getElementById('search-result-container').style.display = 'none';
-    }
+    function clearSearch() { document.getElementById('search-result-container').style.display = 'none'; }
 
-    // -- Logs & Word Export -- //
     function renderLogs() {
         const container = document.getElementById('folders-container');
         container.innerHTML = "";
-        
         const folders = Object.keys(appLogs).sort().reverse();
-        
-        if(folders.length === 0) {
-            container.innerHTML = `<div style="text-align:center; color:#94a3b8; margin-top:40px;">No scan data logged yet.</div>`;
-            return;
-        }
+        if(folders.length === 0) { container.innerHTML = `<div style="text-align:center; color:#94a3b8; margin-top:40px;">No scan data logged yet.</div>`; return; }
         
         folders.forEach(folderName => {
             const data = appLogs[folderName];
@@ -421,9 +356,7 @@
                         <div class="folder-stats">${uniqueUsers} Users | ${totalScans} Total Scans</div>
                     </div>
                 </div>
-                <div class="folder-actions">
-                    <button class="btn-sm" style="background: var(--primary);" onclick="exportToWord('${folderName}')">📄 Export to Word</button>
-                </div>
+                <div class="folder-actions"><button class="btn-sm" style="background: var(--primary);" onclick="exportToWord('${folderName}')">📄 Export to Word</button></div>
             `;
             container.appendChild(card);
         });
@@ -433,54 +366,29 @@
         const data = appLogs[folderName];
         let html = `
             <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-            <head>
-                <meta charset='utf-8'>
-                <title>Export</title>
-                <style>
-                    body { font-family: Arial, sans-serif; }
-                    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
-                    .entry { color: green; font-weight: bold; }
-                    .exit { color: blue; font-weight: bold; }
-                </style>
+            <head><meta charset='utf-8'><title>Export</title>
+                <style> body { font-family: Arial, sans-serif; } table { border-collapse: collapse; width: 100%; margin-top: 20px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; } th { background-color: #f2f2f2; } .entry { color: green; font-weight: bold; } .exit { color: blue; font-weight: bold; } </style>
             </head>
             <body>
                 <h2>Log Data: ${folderName.replace(/-/g, ' ')}</h2>
                 <p>Exported on: ${new Date().toLocaleString()}</p>
                 <table>
-                    <tr>
-                        <th>Roll No</th>
-                        <th>Unique ID</th>
-                        <th>Action</th>
-                        <th>Time</th>
-                    </tr>`;
+                    <tr><th>Name</th><th>Roll No</th><th>Stay</th><th>Unique ID</th><th>Action</th><th>Time</th></tr>`;
         
         for (const uid in data) {
             const user = data[uid];
             user.history.forEach(entry => {
                 const actionStyle = entry.action === 'Entry' ? 'entry' : 'exit';
-                html += `
-                    <tr>
-                        <td>${user.rollNo}</td>
-                        <td>${uid}</td>
-                        <td class="${actionStyle}">${entry.action}</td>
-                        <td>${entry.time}</td>
-                    </tr>`;
+                html += `<tr><td>${user.name || 'N/A'}</td><td>${user.rollNo}</td><td>${user.stay || 'N/A'}</td><td>${uid}</td><td class="${actionStyle}">${entry.action}</td><td>${entry.time}</td></tr>`;
             });
         }
         
         html += `</table></body></html>`;
-
-        // Create Blob and trigger download
         const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = url;
-        link.download = `${folderName}_Attendance_Logs.doc`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        link.href = url; link.download = `${folderName}_Attendance_Logs.doc`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 </script>
 </body>
